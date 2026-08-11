@@ -1,0 +1,123 @@
+<svg width="1400" height="467" viewBox="0 0 1400 467" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="woodGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5c3a1e"/><stop offset="100%" stop-color="#3b2010"/></linearGradient>
+  <linearGradient id="lightLeft" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#f5d98e" stop-opacity="0.18"/><stop offset="100%" stop-color="#f5d98e" stop-opacity="0"/></linearGradient>
+  <linearGradient id="lightRight" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#c8601a" stop-opacity="0"/><stop offset="100%" stop-color="#c8601a" stop-opacity="0.22"/></linearGradient>
+  <linearGradient id="hamGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c0392b"/><stop offset="100%" stop-color="#8b1a0a"/></linearGradient>
+  <linearGradient id="bottleGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2d5a1b"/><stop offset="100%" stop-color="#1a3a0f"/></linearGradient>
+  <linearGradient id="foieGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8c060"/><stop offset="100%" stop-color="#c8961e"/></linearGradient>
+  <linearGradient id="basketGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a0722a"/><stop offset="100%" stop-color="#6b4a15"/></linearGradient>
+  <linearGradient id="breadGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#d4963a"/><stop offset="100%" stop-color="#9a6020"/></linearGradient>
+  <clipPath id="bannerClip"><rect width="1400" height="467"/></clipPath>
+</defs>
+<g clip-path="url(#bannerClip)">
+<rect width="1400" height="467" fill="url(#woodGrad)"/>
+<line x1="0" y1="80" x2="1400" y2="95" stroke="#4a2c10" stroke-width="18" opacity="0.4"/>
+<line x1="0" y1="200" x2="1400" y2="185" stroke="#3a2010" stroke-width="12" opacity="0.3"/>
+<line x1="0" y1="320" x2="1400" y2="340" stroke="#4a2c10" stroke-width="22" opacity="0.35"/>
+<line x1="0" y1="420" x2="1400" y2="410" stroke="#3a2010" stroke-width="10" opacity="0.25"/>
+<rect width="1400" height="467" fill="url(#lightLeft)"/>
+<rect width="1400" height="467" fill="url(#lightRight)"/>
+<ellipse cx="870" cy="390" rx="160" ry="22" fill="#3a2008" opacity="0.6"/>
+<path d="M720 260 Q720 390 730 400 L1010 400 Q1020 390 1020 260 Z" fill="url(#basketGrad)" opacity="0.85"/>
+<path d="M720 280 Q870 268 1020 280" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<path d="M720 300 Q870 290 1020 300" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<path d="M720 320 Q870 310 1020 320" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<path d="M720 340 Q870 332 1020 340" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<path d="M720 360 Q870 354 1020 360" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<path d="M722 380 Q870 376 1018 380" fill="none" stroke="#8b5e20" stroke-width="3" opacity="0.7"/>
+<line x1="760" y1="260" x2="735" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="800" y1="260" x2="782" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="840" y1="260" x2="828" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="870" y1="260" x2="870" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="900" y1="260" x2="912" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="940" y1="260" x2="958" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<line x1="980" y1="260" x2="1005" y2="400" stroke="#6b4515" stroke-width="2.5" opacity="0.5"/>
+<path d="M718 260 Q870 248 1022 260" fill="none" stroke="#c8901a" stroke-width="8" stroke-linecap="round"/>
+<path d="M780 255 Q870 180 960 255" fill="none" stroke="#a07020" stroke-width="14" stroke-linecap="round"/>
+<path d="M780 255 Q870 185 960 255" fill="none" stroke="#d4a840" stroke-width="6" stroke-linecap="round"/>
+<ellipse cx="980" cy="230" rx="75" ry="45" fill="url(#hamGrad)" transform="rotate(-15,980,230)"/>
+<ellipse cx="985" cy="228" rx="60" ry="35" fill="#a83020" transform="rotate(-15,985,228)"/>
+<ellipse cx="988" cy="226" rx="45" ry="26" fill="#c03828" transform="rotate(-15,988,226)"/>
+<ellipse cx="1005" cy="218" rx="12" ry="8" fill="#e8b080" transform="rotate(-15,1005,218)"/>
+<ellipse cx="984" cy="258" rx="72" ry="12" fill="#1a0a00" opacity="0.4" transform="rotate(-10,984,258)"/>
+<rect x="752" y="130" width="36" height="130" rx="8" fill="url(#bottleGrad)"/>
+<rect x="758" y="118" width="24" height="20" rx="4" fill="#2d5a1b"/>
+<rect x="762" y="108" width="16" height="16" rx="3" fill="#1a3a0f"/>
+<rect x="764" y="100" width="12" height="14" rx="2" fill="#c0c040"/>
+<rect x="755" y="195" width="30" height="42" rx="3" fill="#f5f0e0"/>
+<rect x="757" y="198" width="26" height="2" fill="#8b1a0a"/>
+<rect x="757" y="205" width="26" height="2" fill="#8b1a0a"/>
+<rect x="759" y="212" width="22" height="2" fill="#4a3010"/>
+<rect x="759" y="218" width="22" height="2" fill="#4a3010"/>
+<rect x="759" y="224" width="22" height="2" fill="#4a3010"/>
+<rect x="756" y="135" width="6" height="80" rx="3" fill="#4a8a30" opacity="0.4"/>
+<ellipse cx="830" cy="270" rx="42" ry="12" fill="#b07820" opacity="0.5"/>
+<rect x="788" y="190" width="84" height="85" rx="8" fill="#c8b860" opacity="0.9"/>
+<rect x="788" y="190" width="84" height="85" rx="8" fill="none" stroke="#a09020" stroke-width="2"/>
+<rect x="791" y="193" width="78" height="78" rx="6" fill="url(#foieGrad)" opacity="0.6"/>
+<rect x="783" y="182" width="94" height="14" rx="5" fill="#8a7015"/>
+<rect x="786" y="179" width="88" height="8" rx="4" fill="#a09020"/>
+<rect x="796" y="205" width="68" height="48" rx="3" fill="#f8f0d0"/>
+<rect x="800" y="210" width="60" height="3" fill="#1a3a0f"/>
+<rect x="800" y="217" width="60" height="2" fill="#4a7020"/>
+<rect x="800" y="223" width="60" height="2" fill="#4a7020"/>
+<rect x="800" y="229" width="40" height="2" fill="#8b6020"/>
+<ellipse cx="820" cy="348" rx="90" ry="32" fill="url(#breadGrad)"/>
+<ellipse cx="820" cy="338" rx="85" ry="26" fill="#e0a840"/>
+<path d="M760 340 Q820 318 880 338" fill="none" stroke="#8a5010" stroke-width="3" stroke-dasharray="8,4"/>
+<ellipse cx="820" cy="336" rx="82" ry="24" fill="none" stroke="#c87a20" stroke-width="2"/>
+<circle cx="750" cy="348" r="22" fill="#c02020"/>
+<circle cx="748" cy="346" r="19" fill="#e03030"/>
+<circle cx="748" cy="340" r="6" fill="#1a6010"/>
+<path d="M742 337 Q748 332 754 337" fill="none" stroke="#1a6010" stroke-width="3"/>
+<circle cx="795" cy="362" r="16" fill="#d02828"/>
+<circle cx="793" cy="360" r="14" fill="#e84040"/>
+<ellipse cx="910" cy="368" rx="16" ry="20" fill="#e02030"/>
+<ellipse cx="908" cy="366" rx="13" ry="17" fill="#f03040"/>
+<ellipse cx="908" cy="358" rx="1.5" ry="2" fill="#f8d0a0" transform="rotate(-10,908,358)"/>
+<ellipse cx="902" cy="365" rx="1.5" ry="2" fill="#f8d0a0" transform="rotate(10,902,365)"/>
+<ellipse cx="914" cy="365" rx="1.5" ry="2" fill="#f8d0a0" transform="rotate(-8,914,365)"/>
+<ellipse cx="907" cy="372" rx="1.5" ry="2" fill="#f8d0a0"/>
+<path d="M908 348 Q904 342 900 345 Q905 350 908 348" fill="#2a6010"/>
+<path d="M908 348 Q912 342 916 345 Q911 350 908 348" fill="#2a6010"/>
+<path d="M908 348 Q908 341 908 345" fill="none" stroke="#2a6010" stroke-width="2"/>
+<ellipse cx="940" cy="378" rx="14" ry="17" fill="#e02030"/>
+<ellipse cx="938" cy="376" rx="11" ry="14" fill="#f03040"/>
+<path d="M940 361 Q936 355 932 358 Q937 363 940 361" fill="#2a6010"/>
+<path d="M940 361 Q944 355 948 358 Q943 363 940 361" fill="#2a6010"/>
+<path d="M680 200 Q690 180 700 190 Q695 210 680 200" fill="#2a6010"/>
+<path d="M676 215 Q682 192 695 198 Q688 218 676 215" fill="#3a7020"/>
+<path d="M672 232 Q680 210 694 218 Q685 238 672 232" fill="#2a6010"/>
+<path d="M670 250 Q678 228 692 236 Q683 256 670 250" fill="#3a7020"/>
+<path d="M668 270 Q676 248 690 256 Q681 276 668 270" fill="#2a6010"/>
+<circle cx="0" cy="467" r="180" fill="#1a3a0a" opacity="0.5"/>
+<circle cx="1400" cy="0" r="120" fill="#3a1a05" opacity="0.3"/>
+<text x="80" y="130" font-family="Georgia, serif" font-size="18" font-weight="400" letter-spacing="5" fill="#c8a040" opacity="0.9">PRODUITS LOCAUX &amp; GOURMANDS</text>
+<text x="76" y="200" font-family="Georgia, serif" font-size="68" font-weight="700" fill="#f0ece0">Le meilleur</text>
+<text x="76" y="278" font-family="Georgia, serif" font-size="72" font-weight="700" fill="#d4921e">des Landes</text>
+<text x="76" y="350" font-family="Georgia, serif" font-size="52" font-weight="400" fill="#f0ece0">dans votre assiette</text>
+<rect x="76" y="368" width="60" height="3" rx="1.5" fill="#c8a040"/>
+<circle cx="88" cy="418" r="18" fill="none" stroke="#c8a040" stroke-width="2"/>
+<circle cx="88" cy="418" r="10" fill="none" stroke="#c8a040" stroke-width="1.5"/>
+<circle cx="88" cy="418" r="3" fill="#c8a040"/>
+<text x="114" y="424" font-family="sans-serif" font-size="12" fill="#c8c0a0">Produits locaux</text>
+<circle cx="235" cy="418" r="18" fill="none" stroke="#c8a040" stroke-width="2"/>
+<path d="M228 418 L235 410 L242 418 L235 424 Z" fill="none" stroke="#c8a040" stroke-width="1.5"/>
+<text x="260" y="424" font-family="sans-serif" font-size="12" fill="#c8c0a0">Artisanal</text>
+<circle cx="360" cy="418" r="18" fill="none" stroke="#c8a040" stroke-width="2"/>
+<path d="M352 420 Q360 410 368 420" fill="none" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M352 420 Q360 428 368 420" fill="none" stroke="#c8a040" stroke-width="1.5" stroke-linecap="round"/>
+<text x="386" y="424" font-family="sans-serif" font-size="12" fill="#c8c0a0">Circuit court</text>
+<rect x="0" y="430" width="1400" height="37" fill="#2a4a10" opacity="0.9"/>
+<text x="50" y="454" font-family="sans-serif" font-size="13" font-weight="600" letter-spacing="2" fill="#c8a040">LANDES · TERRE DE SAVEURS</text>
+<text x="380" y="454" font-family="sans-serif" font-size="12" fill="#a0b880">Dax et tout le département des Landes</text>
+<text x="700" y="454" font-family="sans-serif" font-size="12" fill="#a0b880">Retrait en boutique ou livraison locale</text>
+<circle cx="1300" cy="300" r="72" fill="#2a4a10" stroke="#c8a040" stroke-width="3"/>
+<circle cx="1300" cy="300" r="63" fill="none" stroke="#c8a040" stroke-width="1.2"/>
+<text x="1300" y="284" text-anchor="middle" font-family="sans-serif" font-size="12" letter-spacing="1" fill="#c8a040">FIÈREMENT</text>
+<text x="1300" y="308" text-anchor="middle" font-family="Georgia, serif" font-size="22" font-weight="700" fill="#f0ece0">LANDAIS</text>
+<path d="M1290 328 L1300 310 L1310 328 Z" fill="#c8a040"/>
+<rect x="1298" y="326" width="4" height="8" rx="1" fill="#c8a040"/>
+</g>
+</svg>
