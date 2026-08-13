@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MapPin, List, Map as MapIcon } from "lucide-react";
-import { getProfessionals } from "@/lib/storage";
+import { getProfessionalsWithImages } from "@/lib/storage";
 import { Professional } from "@/types";
 import ProfessionalCard from "@/components/professional/ProfessionalCard";
 import SearchBar from "@/components/professional/SearchBar";
@@ -21,9 +21,11 @@ function AnnuaireContent() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
-    const data = getProfessionals().filter(p => p.status === "active");
-    setPros(data);
-    setFiltered(data);
+    getProfessionalsWithImages().then(all => {
+      const data = all.filter(p => p.status === "active");
+      setPros(data);
+      setFiltered(data);
+    });
   }, []);
 
   useEffect(() => {

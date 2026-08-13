@@ -7,7 +7,7 @@ import {
   ImagePlus, Images, Star, Shield,
 } from "lucide-react";
 import {
-  getSession, clearSession, getProfessionalById, saveProfessional,
+  getSession, clearSession, getProfessionalById, saveProfessional, rehydrateAsync,
   generateId, getReviewsByPro, saveReview, deleteProfessional,
 } from "@/lib/storage";
 import { Professional, CATEGORIES, LANDES_CITIES, PLANS, OpeningHours, Review } from "@/types";
@@ -16,6 +16,7 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { getBanner } from "@/lib/defaultBanners";
+import { REQUIRE_VALIDATION } from "@/lib/config";
 import StatsTab from "@/app/dashboard/StatsTab";
 import FacturationTab from "@/app/dashboard/FacturationTab";
 import CrmTab from "@/app/dashboard/CrmTab";
@@ -73,6 +74,12 @@ function DashboardContent() {
     setHours(data.openingHours || DEFAULT_HOURS);
     setPhotos(data.photos || []);
     setProReviews(getReviewsByPro(data.id));
+    // Charge les images depuis IndexedDB
+    rehydrateAsync(data).then(full => {
+      setPro(full);
+      setForm(full);
+      setPhotos(full.photos || []);
+    });
   }, [router]);
 
   const handleLogout = () => { clearSession(); router.push("/"); };
@@ -227,12 +234,15 @@ function DashboardContent() {
           <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-semibold text-green-800">Inscription réussie !</p>
-            <p className="text-sm text-green-600">Votre fiche est en attente de validation par notre équipe. Vous serez notifié sous 24h.</p>
+            {REQUIRE_VALIDATION
+              ? <p className="text-sm text-green-600">Votre fiche est en attente de validation par notre équipe. Vous serez notifié sous 24h.</p>
+              : <p className="text-sm text-green-600">Votre fiche est désormais active et visible dans l'annuaire. Vous pouvez la compléter dès maintenant.</p>
+            }
           </div>
         </div>
       )}
-      {/* Bannière validation en attente */}
-      {pro.status === "pending" && !welcome && (
+      {/* Bannière validation en attente — uniquement si la validation manuelle est activée */}
+      {pro.status === "pending" && !welcome && REQUIRE_VALIDATION && (
         <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 flex items-start gap-3">
           <Clock className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
           <div>
@@ -268,7 +278,7 @@ function DashboardContent() {
         <div className="card p-5">
           <p className="text-xs text-gray-500 mb-2">Statut du compte</p>
           <StatusBadge status={pro.status} />
-          {pro.status === "pending" && <p className="text-xs text-orange-500 mt-2 flex items-center gap-1"><Clock className="w-3 h-3" />Validation en cours</p>}
+          {pro.status === "pending" && REQUIRE_VALIDATION && <p className="text-xs text-orange-500 mt-2 flex items-center gap-1"><Clock className="w-3 h-3" />Validation en cours</p>}
           {pro.status === "active"  && <p className="text-xs text-green-500 mt-2 flex items-center gap-1"><CheckCircle className="w-3 h-3" />Visible dans l&apos;annuaire</p>}
         </div>
         <div className="card p-5">

@@ -8,7 +8,7 @@ import {
   Building2, Shield, ExternalLink, Share2, CheckCircle,
   X, Images, ChevronLeft, ChevronRight, MessageCircle, Send, Loader2,
 } from "lucide-react";
-import { getProfessionalById, recordVisit } from "@/lib/storage";
+import { getProfessionalById, recordVisit, rehydrateAsync } from "@/lib/storage";
 import { Professional, formatDayHours } from "@/types";
 import { getBanner } from "@/lib/defaultBanners";
 
@@ -211,9 +211,11 @@ export default function ProfessionalProfilePage() {
   useEffect(() => {
     const d = getProfessionalById(id);
     if (!d) { setNotFound(true); return; }
-    // Ne pas afficher les fiches non validées
     if (d.status === "pending" || d.status === "rejected") { setNotFound(true); return; }
+    // Charge d'abord sans images pour afficher vite
     setPro(d);
+    // Puis injecte les images depuis IndexedDB
+    rehydrateAsync(d).then(full => setPro(full));
 
     // Enregistrer la visite pour les pros Gold
     if (d.plan === "gold" && d.status === "active") {

@@ -7,6 +7,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PLANS, CATEGORIES, type Professional } from "@/types";
 import { saveProfessional, setSession, generateId } from "@/lib/storage";
+import { REQUIRE_VALIDATION } from "@/lib/config";
 import { lookupSiren } from "@/lib/siren";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
@@ -292,7 +293,9 @@ export default function InscriptionPage() {
       banner:  form.banner || undefined,
       photos:  photos.length > 0  ? photos  : undefined,
       services: services.filter(s => s.trim()).length > 0 ? services.filter(s => s.trim()) : undefined,
-      plan: selectedPlan, status: "pending",
+      plan: selectedPlan,
+      status: REQUIRE_VALIDATION ? "pending" : "active",
+      ...(REQUIRE_VALIDATION ? {} : { validatedAt: new Date().toISOString() }),
       openingHours: hours,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

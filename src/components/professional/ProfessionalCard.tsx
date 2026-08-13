@@ -6,12 +6,14 @@ import { MapPin, Phone, Globe, ArrowRight } from "lucide-react";
 import StarDisplay from "@/components/ui/StarDisplay";
 import { getProRating } from "@/lib/reviewUtils";
 import { getBanner } from "@/lib/defaultBanners";
+import { rehydrateAsync } from "@/lib/storage";
 
 interface ProfessionalCardProps {
   pro: Professional;
 }
 
-export default function ProfessionalCard({ pro }: ProfessionalCardProps) {
+export default function ProfessionalCard({ pro: propPro }: ProfessionalCardProps) {
+  const [pro, setPro] = useState<Professional>(propPro);
   const initials = pro.companyName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
   const [rating, setRating] = useState<{ avg: number; count: number } | null>(null);
   const bannerSrc = getBanner(pro.banner, pro.category);
@@ -19,6 +21,15 @@ export default function ProfessionalCard({ pro }: ProfessionalCardProps) {
   useEffect(() => {
     setRating(getProRating(pro.id));
   }, [pro.id]);
+
+  // Charge le logo et la bannière depuis IndexedDB si absents
+  useEffect(() => {
+    if (!propPro.logo && !propPro.banner && !propPro.photos?.length) {
+      rehydrateAsync(propPro).then(full => {
+        if (full.logo || full.banner || full.photos?.length) setPro(full);
+      });
+    }
+  }, [propPro.id]);
 
   return (
     <Link

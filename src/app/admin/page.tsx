@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare } from "lucide-react";
-import { checkAdminCredentials, setSession, getSession, clearSession, getProfessionals, saveProfessional, deleteProfessional, getReviews, saveReview, deleteReview } from "@/lib/storage";
+import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare, Info } from "lucide-react";
+import { checkAdminCredentials, setSession, getSession, clearSession, getProfessionals, getProfessionalsWithImages, saveProfessional, deleteProfessional, getReviews, saveReview, deleteReview } from "@/lib/storage";
 import { Professional, CATEGORIES, PLANS, StatusType, Review } from "@/types";
 import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
 import HeroImage from "@/components/ui/HeroImage";
+import { REQUIRE_VALIDATION } from "@/lib/config";
 
 // Bouton "Enregistrer" pour la photo hero — lit l'état depuis le storage
 function HeroSaveButton() {
@@ -66,7 +67,7 @@ export default function AdminPage() {
     const session = getSession();
     if (session?.type === "admin") {
       setAuthenticated(true);
-      setPros(getProfessionals());
+      getProfessionalsWithImages().then(setPros);
       setReviews(getReviews());
     }
   }, []);
@@ -76,7 +77,7 @@ export default function AdminPage() {
     if (checkAdminCredentials(loginEmail, loginPassword)) {
       setSession("admin");
       setAuthenticated(true);
-      setPros(getProfessionals());
+      getProfessionalsWithImages().then(setPros);
     } else {
       setLoginError("Identifiants incorrects.");
     }
@@ -84,7 +85,7 @@ export default function AdminPage() {
 
   const handleLogout = () => { clearSession(); setAuthenticated(false); router.push("/"); };
 
-  const refresh = () => { setPros(getProfessionals()); setReviews(getReviews()); };
+  const refresh = () => { getProfessionalsWithImages().then(setPros); setReviews(getReviews()); };
 
   const updateStatus = (id: string, status: StatusType) => {
     const pro = pros.find((p) => p.id === id);
@@ -167,6 +168,19 @@ export default function AdminPage() {
   // ADMIN DASHBOARD
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* Bandeau statut validation */}
+      {!REQUIRE_VALIDATION && (
+        <div className="mb-6 flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-blue-800">Validation automatique activée</p>
+            <p className="text-sm text-blue-700 mt-0.5">
+              Les nouvelles inscriptions sont publiées immédiatement sans validation manuelle.
+              Pour réactiver la validation, passez <code className="bg-blue-100 px-1 rounded text-xs font-mono">REQUIRE_VALIDATION</code> à <code className="bg-blue-100 px-1 rounded text-xs font-mono">true</code> dans <code className="bg-blue-100 px-1 rounded text-xs font-mono">src/lib/config.ts</code>.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>

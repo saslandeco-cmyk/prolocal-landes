@@ -1,13 +1,15 @@
 import { Professional } from "@/types";
 
-const STORAGE_KEY  = "prolocal_professionals";
-const ADMIN_KEY    = "prolocal_admin";
-const SESSION_KEY  = "prolocal_session";
-const IMG_PREFIX   = "prolocal_img_";   // images stockées séparément
+const STORAGE_KEY         = "prolocal_professionals";
+const ADMIN_KEY           = "prolocal_admin";
+const SESSION_KEY         = "prolocal_session";
+const IDB_DB_NAME         = "prolocal_images";
+const IDB_STORE           = "images";
+const IDB_VERSION         = 1;
 
 const DEFAULT_ADMIN = { email: "admin@prolocal-landes.fr", password: "Admin2024!" };
 
-// ── Helpers ───────────────────────────────────────────────────
+// ── localStorage helper ────────────────────────────────────────
 
 function safeSet(key: string, value: string): boolean {
   try {
@@ -21,77 +23,146 @@ function safeSet(key: string, value: string): boolean {
   }
 }
 
-// ── Image store : logo / banner / photos stockés à part ───────
+// ── IndexedDB for images (logos, banners, photos) ─────────────
+// Stockage des images dans IndexedDB pour éviter le quota localStorage
+
+let _idb: IDBDatabase | null = null;
+
+function openIDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (_idb) { resolve(_idb); return; }
+    const req = indexedDB.open(IDB_DB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => { _idb = req.result; resolve(_idb); };
+    req.onerror  = () => reject(req.error);
+  });
+}
+
+async function idbSet(key: string, value: string | null): Promise<void> {
+  try {
+    const db = await openIDB();
+    const tx  = db.transaction(IDB_STORE, "readwrite");
+    const store = tx.objectStore(IDB_STORE);
+    if (value === null) {
+      store.delete(key);
+    } else {
+      store.put(value, key);
+    }
+    return new Promise((res, rej) => {
+      tx.oncomplete = () => res();
+      tx.onerror    = () => rej(tx.error);
+    });
+  } catch (e) {
+    // Fallback silencieux si IndexedDB indisponible
+    console.warn("[storage] IDB set failed:", e);
+  }
+}
+
+async function idbGet(key: string): Promise<string | undefined> {
+  try {
+    const db = await openIDB();
+    const tx  = db.transaction(IDB_STORE, "readonly");
+    const store = tx.objectStore(IDB_STORE);
+    const req = store.get(key);
+    return new Promise((res, rej) => {
+      req.onsuccess = () => res(req.result ?? undefined);
+      req.onerror   = () => rej(req.error);
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+// ── Image store : logo / banner / photos dans IndexedDB ────────
 
 function imgKey(proId: string, type: string) {
-  return `${IMG_PREFIX}${proId}_${type}`;
+  return `img_${proId}_${type}`;
 }
 
-function saveImage(proId: string, type: string, data: string | undefined) {
-  const k = imgKey(proId, type);
-  if (!data) { localStorage.removeItem(k); return; }
-  safeSet(k, data);
+export async function saveImageAsync(proId: string, type: string, data: string | undefined): Promise<void> {
+  await idbSet(imgKey(proId, type), data ?? null);
 }
 
-function loadImage(proId: string, type: string): string | undefined {
-  if (typeof window === "undefined") return undefined;
-  return localStorage.getItem(imgKey(proId, type)) || undefined;
+export async function loadImageAsync(proId: string, type: string): Promise<string | undefined> {
+  return idbGet(imgKey(proId, type));
 }
 
-function savePhotos(proId: string, photos: string[] | undefined) {
-  // Vider les anciennes
-  for (let i = 0; i < 5; i++) localStorage.removeItem(imgKey(proId, `photo${i}`));
+export async function savePhotosAsync(proId: string, photos: string[] | undefined): Promise<void> {
+  for (let i = 0; i < 5; i++) await idbSet(imgKey(proId, `photo${i}`), null);
   if (!photos?.length) return;
-  photos.slice(0, 5).forEach((p, i) => safeSet(imgKey(proId, `photo${i}`), p));
+  for (let i = 0; i < Math.min(photos.length, 5); i++) {
+    await idbSet(imgKey(proId, `photo${i}`), photos[i]);
+  }
 }
 
-function loadPhotos(proId: string): string[] | undefined {
-  if (typeof window === "undefined") return undefined;
+export async function loadPhotosAsync(proId: string): Promise<string[] | undefined> {
   const out: string[] = [];
   for (let i = 0; i < 5; i++) {
-    const v = localStorage.getItem(imgKey(proId, `photo${i}`));
+    const v = await idbGet(imgKey(proId, `photo${i}`));
     if (v) out.push(v);
   }
   return out.length ? out : undefined;
 }
 
-function deleteImages(proId: string) {
-  localStorage.removeItem(imgKey(proId, "logo"));
-  localStorage.removeItem(imgKey(proId, "banner"));
-  for (let i = 0; i < 5; i++) localStorage.removeItem(imgKey(proId, `photo${i}`));
+export async function deleteImagesAsync(proId: string): Promise<void> {
+  await idbSet(imgKey(proId, "logo"),   null);
+  await idbSet(imgKey(proId, "banner"), null);
+  for (let i = 0; i < 5; i++) await idbSet(imgKey(proId, `photo${i}`), null);
 }
 
-// ── Rehydrate : injecte les images dans un pro depuis le store ─
-function rehydrate(pro: Professional): Professional {
+// Rehydrate async : injecte images depuis IndexedDB
+export async function rehydrateAsync(pro: Professional): Promise<Professional> {
+  const [logo, banner, photos] = await Promise.all([
+    loadImageAsync(pro.id, "logo"),
+    loadImageAsync(pro.id, "banner"),
+    loadPhotosAsync(pro.id),
+  ]);
   return {
     ...pro,
-    logo:   loadImage(pro.id, "logo")   ?? pro.logo,
-    banner: loadImage(pro.id, "banner") ?? pro.banner,
-    photos: loadPhotos(pro.id)          ?? pro.photos,
+    logo:   logo   ?? pro.logo,
+    banner: banner ?? pro.banner,
+    photos: photos ?? pro.photos,
   };
 }
 
 // ── Professionals ─────────────────────────────────────────────
+// Les métadonnées (sans images) dans localStorage — léger et fiable
 
-export function getProfessionals(): Professional[] {
+function getRawProfessionals(): Professional[] {
   if (typeof window === "undefined") return [];
   const data = localStorage.getItem(STORAGE_KEY);
-  const list: Professional[] = data ? (() => { try { return JSON.parse(data); } catch { return []; } })() : getSampleData();
-  return list.map(rehydrate);
+  if (data) {
+    try { return JSON.parse(data); } catch { return []; }
+  }
+  // Premier lancement : initialise avec les données démo
+  const samples = getSampleData();
+  safeSet(STORAGE_KEY, JSON.stringify(samples));
+  return samples;
+}
+
+export function getProfessionals(): Professional[] {
+  return getRawProfessionals();
+}
+
+export async function getProfessionalsWithImages(): Promise<Professional[]> {
+  const list = getRawProfessionals();
+  return Promise.all(list.map(rehydrateAsync));
 }
 
 export function saveProfessional(pro: Professional): void {
   // Séparer les images du reste
   const { logo, banner, photos, ...rest } = pro;
 
-  // Sauvegarder les images à part
-  saveImage(pro.id, "logo",   logo   || undefined);
-  saveImage(pro.id, "banner", banner || undefined);
-  savePhotos(pro.id, photos?.length ? photos : undefined);
+  // Sauvegarder les images dans IndexedDB (async, non bloquant)
+  saveImageAsync(pro.id, "logo",   logo   || undefined);
+  saveImageAsync(pro.id, "banner", banner || undefined);
+  savePhotosAsync(pro.id, photos?.length ? photos : undefined);
 
-  // Sauvegarder le pro sans les images (payload léger)
+  // Sauvegarder les métadonnées sans images dans localStorage
   const lean: Professional = { ...rest, logo: undefined, banner: undefined, photos: undefined };
-  const pros = getProfessionals().map(p => ({ ...p, logo: undefined, banner: undefined, photos: undefined }));
+  const pros = getRawProfessionals().map(p => ({ ...p, logo: undefined, banner: undefined, photos: undefined }));
   const idx = pros.findIndex(p => p.id === lean.id);
   if (idx >= 0) { pros[idx] = lean; } else { pros.push(lean); }
 
@@ -101,21 +172,25 @@ export function saveProfessional(pro: Professional): void {
 }
 
 export function deleteProfessional(id: string): void {
-  deleteImages(id);
-  const pros = getProfessionals()
+  deleteImagesAsync(id);
+  const pros = getRawProfessionals()
     .map(p => ({ ...p, logo: undefined, banner: undefined, photos: undefined }))
     .filter(p => p.id !== id);
   safeSet(STORAGE_KEY, JSON.stringify(pros));
 }
 
 export function getProfessionalById(id: string): Professional | null {
-  const p = getProfessionals().find(p => p.id === id);
-  return p ? rehydrate(p) : null;
+  return getRawProfessionals().find(p => p.id === id) ?? null;
+}
+
+export async function getProfessionalByIdWithImages(id: string): Promise<Professional | null> {
+  const p = getRawProfessionals().find(p => p.id === id);
+  if (!p) return null;
+  return rehydrateAsync(p);
 }
 
 export function getProfessionalByEmail(email: string): Professional | null {
-  const p = getProfessionals().find(p => p.email === email);
-  return p ? rehydrate(p) : null;
+  return getRawProfessionals().find(p => p.email === email) ?? null;
 }
 
 export function generateId(): string {
@@ -123,19 +198,36 @@ export function generateId(): string {
 }
 
 // ── Session ───────────────────────────────────────────────────
+// Utilise localStorage pour persister la session entre les onglets
+// La session expire après 7 jours
+
+const SESSION_TTL = 7 * 24 * 3600 * 1000; // 7 jours
 
 export function setSession(type: "pro" | "admin", id?: string): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ type, id, ts: Date.now() }));
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ type, id, ts: Date.now() }));
 }
 
 export function getSession(): { type: "pro" | "admin"; id?: string } | null {
   if (typeof window === "undefined") return null;
-  const data = sessionStorage.getItem(SESSION_KEY);
-  return data ? JSON.parse(data) : null;
+  const data = localStorage.getItem(SESSION_KEY);
+  if (!data) return null;
+  try {
+    const parsed = JSON.parse(data);
+    // Expiration après 7 jours
+    if (Date.now() - parsed.ts > SESSION_TTL) {
+      localStorage.removeItem(SESSION_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function clearSession(): void {
-  sessionStorage.removeItem(SESSION_KEY);
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(SESSION_KEY);
 }
 
 // ── Admin ─────────────────────────────────────────────────────
@@ -149,7 +241,7 @@ export function checkAdminCredentials(email: string, password: string): boolean 
 // ── Sample data ───────────────────────────────────────────────
 
 function getSampleData(): Professional[] {
-  const samples: Professional[] = [
+  return [
     {
       id: "demo1", companyName: "Boulangerie des Pins",
       siren: "123456789", legalForm: "SARL", category: "Alimentation & Épicerie",
@@ -248,8 +340,6 @@ function getSampleData(): Professional[] {
       updatedAt: new Date().toISOString(),
     },
   ];
-  safeSet(STORAGE_KEY, JSON.stringify(samples));
-  return samples;
 }
 
 // ── Appointments ──────────────────────────────────────────────
@@ -322,7 +412,6 @@ export function isDateBlocked(proId: string, date: string, time?: string): boole
 
 // ── Reviews ──────────────────────────────────────────────────────
 const REVIEWS_KEY = "prolocal_reviews";
-
 import type { Review } from "@/types";
 
 export function getReviews(): Review[] {
@@ -370,7 +459,6 @@ export function reviewExists(proId: string, email: string, firstName: string, la
 
 // ── Visits / Statistics ──────────────────────────────────────────
 const VISITS_KEY = "prolocal_visits";
-
 import type { Visit, DailyStats } from "@/types";
 
 export function getVisits(): Visit[] {
@@ -388,7 +476,6 @@ export function recordVisit(proId: string, source: Visit["source"] = "direct"): 
   const date = now.toISOString().slice(0, 10);
   const hour = now.getHours();
 
-  // Déduplique : 1 visite max par proId + date + heure par session
   const sessionKey = `visit_${proId}_${date}_${hour}`;
   if (sessionStorage.getItem(sessionKey)) return;
   sessionStorage.setItem(sessionKey, "1");
@@ -396,7 +483,6 @@ export function recordVisit(proId: string, source: Visit["source"] = "direct"): 
   const visit: Visit = { proId, date, hour, source };
   const all = getVisits();
   all.push(visit);
-  // Conserver max 1000 visites par pro pour ne pas surcharger le localStorage
   const proVisits = all.filter(v => v.proId === proId);
   if (proVisits.length > 1000) {
     const toRemove = proVisits.length - 1000;
@@ -412,13 +498,8 @@ export function recordVisit(proId: string, source: Visit["source"] = "direct"): 
 }
 
 export function getStatsByPro(proId: string, days = 30): {
-  total: number;
-  today: number;
-  thisWeek: number;
-  thisMonth: number;
-  byDay: DailyStats[];
-  byHour: number[];
-  bySource: Record<Visit["source"], number>;
+  total: number; today: number; thisWeek: number; thisMonth: number;
+  byDay: DailyStats[]; byHour: number[]; bySource: Record<Visit["source"], number>;
 } {
   const visits = getVisitsByPro(proId);
   const now    = new Date();
@@ -426,7 +507,6 @@ export function getStatsByPro(proId: string, days = 30): {
   const weekAgo  = new Date(now); weekAgo.setDate(now.getDate() - 7);
   const monthAgo = new Date(now); monthAgo.setDate(now.getDate() - 30);
 
-  // By day (last `days` days)
   const dayMap: Record<string, number> = {};
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now); d.setDate(now.getDate() - i);
@@ -435,11 +515,9 @@ export function getStatsByPro(proId: string, days = 30): {
   visits.forEach(v => { if (dayMap[v.date] !== undefined) dayMap[v.date]++; });
   const byDay: DailyStats[] = Object.entries(dayMap).map(([date, visits]) => ({ date, visits }));
 
-  // By hour
   const byHour = Array(24).fill(0);
   visits.forEach(v => { byHour[v.hour]++; });
 
-  // By source
   const bySource: Record<Visit["source"], number> = { direct: 0, search: 0, category: 0, map: 0 };
   visits.forEach(v => { bySource[v.source]++; });
 
@@ -448,15 +526,12 @@ export function getStatsByPro(proId: string, days = 30): {
     today:     visits.filter(v => v.date === todayStr).length,
     thisWeek:  visits.filter(v => new Date(v.date) >= weekAgo).length,
     thisMonth: visits.filter(v => new Date(v.date) >= monthAgo).length,
-    byDay,
-    byHour,
-    bySource,
+    byDay, byHour, bySource,
   };
 }
 
 // ── Facturation ──────────────────────────────────────────────────
 const DOCS_KEY = "prolocal_documents";
-
 import type { BillingDocument } from "@/types";
 
 export function getDocuments(): BillingDocument[] {
@@ -487,35 +562,15 @@ export function getNextNumber(proId: string, type: BillingDocument["type"]): str
   return `${prefix}-${year}-${seq}`;
 }
 
-// ── Billing Profile (informations émetteur) ──────────────────────
+// ── Billing Profile ──────────────────────────────────────────────
 const BILLING_PROFILE_KEY = "prolocal_billing_profile";
 
 export interface BillingProfile {
-  proId:        string;
-  // Identification
-  companyName:  string;   // Dénomination sociale ou nom+prénom
-  legalForm:    string;   // SARL, SAS, Auto-entrepreneur, EI…
-  siren:        string;   // SIREN 9 chiffres
-  siret?:       string;   // SIRET 14 chiffres (établissement)
-  rcs?:         string;   // ex: "RCS Mont-de-Marsan B 123 456 789"
-  rm?:          string;   // Répertoire des métiers (artisans)
-  capital?:     string;   // Capital social (SARL/SAS)
-  ape?:         string;   // Code APE/NAF ex: "6201Z"
-  vatNumber?:   string;   // N° TVA intracommunautaire
-  vatSubject:   boolean;  // Assujetti à la TVA ?
-  // Coordonnées
-  address:      string;
-  postalCode:   string;
-  city:         string;
-  email:        string;
-  phone:        string;
-  website?:     string;
-  // Paiement
-  bankDetails?: string;   // IBAN + BIC
-  paymentTerms?:string;   // "30 jours date de facture"
-  // Mentions légales
-  penalty?:     string;
-  recoveryFee?: string;
+  proId: string; companyName: string; legalForm: string; siren: string;
+  siret?: string; rcs?: string; rm?: string; capital?: string; ape?: string;
+  vatNumber?: string; vatSubject: boolean; address: string; postalCode: string;
+  city: string; email: string; phone: string; website?: string;
+  bankDetails?: string; paymentTerms?: string; penalty?: string; recoveryFee?: string;
 }
 
 export function getBillingProfile(proId: string): BillingProfile | null {
@@ -537,7 +592,6 @@ export function saveBillingProfile(profile: BillingProfile): void {
 
 // ── CRM Clients ──────────────────────────────────────────────────
 const CLIENTS_KEY = "prolocal_clients";
-
 import type { Client } from "@/types";
 
 export function getClients(): Client[] {

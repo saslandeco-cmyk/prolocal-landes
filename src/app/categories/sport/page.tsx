@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import {
   Search, MapPin, ArrowRight, ChevronRight, X, TrendingUp,
 } from "lucide-react";
-import { getProfessionals } from "@/lib/storage";
+import { getProfessionalsWithImages } from "@/lib/storage";
 import { DEFAULT_BANNERS } from "@/lib/defaultBanners";
 import { Professional } from "@/types";
 import ProfessionalCard from "@/components/professional/ProfessionalCard";
@@ -112,12 +112,14 @@ export default function SportPage() {
   ];
 
   useEffect(() => {
-    const real = getProfessionals().filter(p => p.status === "active" && p.category === CATEGORY);
-    const merged = [...real];
-    DEMO_SPORT_PROS.forEach(d => { if (!merged.find(p => p.id === d.id)) merged.push(d); });
-    const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
-    merged.sort((a, b) => order[a.plan] - order[b.plan]);
-    setPros(merged); setFiltered(merged); setMapLoaded(true);
+    (async () => {
+      const real = (await getProfessionalsWithImages()).filter(p => p.status === "active" && p.category === CATEGORY);
+      const merged = [...real];
+      DEMO_SPORT_PROS.forEach(d => { if (!merged.find(p => p.id === d.id)) merged.push(d); });
+      const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
+      merged.sort((a, b) => order[a.plan] - order[b.plan]);
+      setPros(merged); setFiltered(merged); setMapLoaded(true);
+    })();
   }, []);
 
   // Suggestions mots-clés
