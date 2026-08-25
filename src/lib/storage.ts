@@ -309,7 +309,7 @@ function getSampleData(): Professional[] {
     },
     {
       id: "demo4", companyName: "Gîte de la Pinède",
-      siren: "789456123", legalForm: "EURL", category: "Hébergement & Tourisme",
+      siren: "789456123", legalForm: "EURL", category: "Services à la personne",
       description: "Gîte rustique et chaleureux en pleine forêt landaise à Mimizan. Capacité 8 personnes, piscine, barbecue, à 10 min des plages. Idéal familles.",
       firstName: "Sophie", lastName: "Martin",
       email: "gite@example.com", password: "demo123",
@@ -330,7 +330,7 @@ function getSampleData(): Professional[] {
     },
     {
       id: "demo5", companyName: "Cabinet Vétérinaire Landes Sud",
-      siren: "321654987", legalForm: "SCP", category: "Médical & Paramédical",
+      siren: "321654987", legalForm: "SCP", category: "Services à la personne",
       description: "Cabinet vétérinaire pour animaux de compagnie et animaux de ferme à Capbreton. Service d'urgence 7j/7. Chirurgie, vaccinations, consultations.",
       firstName: "Docteur", lastName: "Berrois",
       email: "veto@example.com", password: "demo123",
@@ -619,19 +619,26 @@ export function deleteClient(id: string): void {
 }
 
 // ── Hero image ────────────────────────────────────────────────────
-const HERO_IMAGE_KEY = "prolocal_hero_image";
+const HERO_IMAGE_IDB_KEY = "hero_image";
 
-export function getHeroImage(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(HERO_IMAGE_KEY);
+export async function getHeroImage(): Promise<string | null> {
+  // Migre depuis localStorage si présent
+  if (typeof window !== "undefined") {
+    const legacy = localStorage.getItem("prolocal_hero_image");
+    if (legacy) {
+      await idbSet(HERO_IMAGE_IDB_KEY, legacy);
+      localStorage.removeItem("prolocal_hero_image");
+    }
+  }
+  return (await idbGet(HERO_IMAGE_IDB_KEY)) ?? null;
 }
 
-export function saveHeroImage(dataUrl: string): void {
-  if (typeof window === "undefined") return;
-  safeSet(HERO_IMAGE_KEY, dataUrl);
+export async function saveHeroImage(dataUrl: string): Promise<void> {
+  await idbSet(HERO_IMAGE_IDB_KEY, dataUrl);
+  // Nettoyage localStorage au cas où
+  if (typeof window !== "undefined") localStorage.removeItem("prolocal_hero_image");
 }
 
-export function deleteHeroImage(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem(HERO_IMAGE_KEY);
+export async function deleteHeroImage(): Promise<void> {
+  await idbSet(HERO_IMAGE_IDB_KEY, null);
 }

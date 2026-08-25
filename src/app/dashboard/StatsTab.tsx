@@ -64,7 +64,7 @@ export default function StatsTab({ proId }: Props) {
       {/* Header + period selector */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-bold text-landes-pine">Statistiques de visites</h2>
+          <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Statistiques de visites</h2>
           <p className="text-sm text-gray-500">Nombre de visites uniques sur votre fiche publique</p>
         </div>
         <div className="flex gap-1.5 bg-gray-100 p-1 rounded-xl">

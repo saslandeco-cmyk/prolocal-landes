@@ -11,6 +11,7 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: number;
+  hideLink?: boolean;
 }
 
 function Btn({ onClick, active, title, children, danger }: {
@@ -41,6 +42,7 @@ export default function RichTextEditor({
   value, onChange,
   placeholder = "Décrivez votre activité, services, savoir-faire…",
   minHeight = 160,
+  hideLink = false,
 }: RichTextEditorProps) {
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkUrl, setLinkUrl]             = useState("");
@@ -164,16 +166,19 @@ export default function RichTextEditor({
         <Btn onClick={() => editor.chain().focus().setTextAlign("right").run()} active={editor.isActive({textAlign:"right"})} title="Aligner à droite">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2" rx="1"/><rect x="4" y="5" width="10" height="2" rx="1"/><rect x="2" y="9" width="12" height="2" rx="1"/></svg>
         </Btn>
-        <Sep />
-
-        {/* Lien */}
-        <Btn onClick={() => { if (!editor) return; setLinkUrl(editor.getAttributes("link").href || ""); setShowLinkModal(true); }} active={editor.isActive("link")} title="Insérer un lien">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        </Btn>
-        {editor.isActive("link") && (
-          <Btn onClick={() => editor.chain().focus().unsetLink().run()} title="Supprimer le lien" danger>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
-          </Btn>
+        {!hideLink && (
+          <>
+            <Sep />
+            {/* Lien */}
+            <Btn onClick={() => { if (!editor) return; setLinkUrl(editor.getAttributes("link").href || ""); setShowLinkModal(true); }} active={editor.isActive("link")} title="Insérer un lien">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </Btn>
+            {editor.isActive("link") && (
+              <Btn onClick={() => editor.chain().focus().unsetLink().run()} title="Supprimer le lien" danger>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+              </Btn>
+            )}
+          </>
         )}
         <Sep />
 
@@ -210,7 +215,7 @@ export default function RichTextEditor({
       </div>
 
       {/* ── Modal lien ── */}
-      {showLinkModal && (
+      {!hideLink && showLinkModal && (
         <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center" onClick={() => setShowLinkModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
             <p className="font-bold text-landes-pine mb-4">Insérer un lien</p>

@@ -844,7 +844,7 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="text-lg font-bold text-landes-pine">Informations de facturation</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Informations de facturation</h2>
             <p className="text-sm text-gray-500 mt-0.5">
               Ces informations apparaîtront automatiquement dans la section "Émetteur" de vos documents.
             </p>
@@ -1057,7 +1057,7 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
       <div className="card p-6">
         <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div>
-            <h2 className="text-lg font-bold text-landes-pine">Devis, Factures &amp; Avoirs</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Devis, Factures &amp; Avoirs</h2>
             <p className="text-sm text-gray-500">Documents aux normes françaises (art. L441-9 C.com.)</p>
           </div>
           <div className="flex gap-2 flex-wrap">

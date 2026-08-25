@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X, MapPin, LogIn, UserPlus, LogOut, User, ChevronDown, LayoutDashboard, Grid3X3 } from "lucide-react";
 import { getSession, clearSession, getProfessionalById } from "@/lib/storage";
+import { SUBCATEGORIES } from "@/types";
 
 interface ProSession {
   firstName: string;
@@ -18,17 +19,12 @@ const CATEGORIES = [
   { slug: "batiment",      label: "Bâtiment & Travaux",         emoji: "🔨" },
   { slug: "beaute",        label: "Beauté & Bien-être",         emoji: "💆" },
   { slug: "commerce",      label: "Commerce & Vente",           emoji: "🛍️" },
-  { slug: "culture",       label: "Culture & Loisirs",          emoji: "🎭" },
-  { slug: "education",     label: "Éducation & Formation",      emoji: "📚" },
-  { slug: "hebergement",   label: "Hébergement & Tourisme",     emoji: "🏡" },
-  { slug: "restauration",  label: "Hôtellerie & Restauration",  emoji: "🍽️" },
+  { slug: "agriculture",   label: "Culture & Élevage",          emoji: "🌾" },
   { slug: "immobilier",    label: "Immobilier",                 emoji: "🏠" },
   { slug: "informatique",  label: "Informatique & Numérique",   emoji: "💻" },
-  { slug: "medical",       label: "Médical & Paramédical",      emoji: "🏥" },
-  { slug: "agriculture",   label: "Nature & Agriculture",       emoji: "🌾" },
   { slug: "services",      label: "Services à la personne",     emoji: "🤝" },
   { slug: "sport",         label: "Sport & Fitness",            emoji: "🏄" },
-  { slug: "transport",     label: "Transport & Logistique",     emoji: "🚚" },
+  { slug: "transport",     label: "Transport de personnes",     emoji: "🚚" },
 ];
 
 export default function Navbar() {
@@ -38,6 +34,7 @@ export default function Navbar() {
   const [dropOpen,   setDropOpen]   = useState(false);
   const [catOpen,    setCatOpen]    = useState(false);
   const [mobileCatOpen, setMobileCatOpen] = useState(false);
+  const [mobileSubOpen, setMobileSubOpen] = useState<string | null>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const catRef  = useRef<HTMLDivElement>(null);
 
@@ -115,8 +112,8 @@ export default function Navbar() {
               {catOpen && (
                 <div
                   onMouseLeave={() => setCatOpen(false)}
-                  className="absolute left-1/2 -translate-x-1/2 top-full mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
-                  style={{ width: "min(720px, 90vw)" }}
+                  className="fixed left-1/2 -translate-x-1/2 top-16 mt-3 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                  style={{ width: "min(1160px, 96vw)" }}
                 >
                   {/* Header */}
                   <div className="px-5 py-3 bg-landes-forest/5 border-b border-gray-100 flex items-center justify-between">
@@ -130,21 +127,40 @@ export default function Navbar() {
                     </Link>
                   </div>
 
-                  {/* Grille des catégories */}
-                  <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-1">
-                    {CATEGORIES.map(cat => (
-                      <Link
-                        key={cat.slug}
-                        href={`/categories/${cat.slug}`}
-                        onClick={() => setCatOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-landes-forest/5 hover:text-landes-forest transition-colors group"
-                      >
-                        <span className="text-xl leading-none flex-shrink-0">{cat.emoji}</span>
-                        <span className="text-sm text-gray-700 group-hover:text-landes-forest font-medium leading-tight">
-                          {cat.label}
-                        </span>
-                      </Link>
-                    ))}
+                  {/* Grille des catégories + sous-catégories */}
+                  <div className="p-5 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 max-h-[75vh] overflow-y-auto">
+                    {CATEGORIES.map(cat => {
+                      const subs = SUBCATEGORIES[cat.label];
+                      return (
+                        <div key={cat.slug}>
+                          <Link
+                            href={`/categories/${cat.slug}`}
+                            onClick={() => setCatOpen(false)}
+                            className="flex items-center gap-2 mb-1.5 group"
+                          >
+                            <span className="text-lg leading-none flex-shrink-0">{cat.emoji}</span>
+                            <span className="text-sm font-bold text-landes-pine group-hover:text-landes-forest transition-colors leading-tight">
+                              {cat.label}
+                            </span>
+                          </Link>
+                          {subs && subs.length > 0 && (
+                            <ul className="ml-6 space-y-0.5 border-l border-gray-100 pl-3">
+                              {subs.map(sub => (
+                                <li key={sub}>
+                                  <Link
+                                    href={`/annuaire?category=${encodeURIComponent(cat.label)}&q=${encodeURIComponent(sub)}`}
+                                    onClick={() => setCatOpen(false)}
+                                    className="block text-xs text-gray-500 hover:text-landes-forest py-0.5 transition-colors leading-snug"
+                                  >
+                                    {sub}
+                                  </Link>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -216,7 +232,7 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden bg-white border-t border-gray-100 py-4 px-4 space-y-1">
+        <div className="md:hidden bg-white border-t border-gray-100 py-4 px-4 space-y-1 max-h-[calc(100vh-4rem)] overflow-y-auto">
           <Link href="/" className="block py-2.5 px-3 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition-colors" onClick={() => setOpen(false)}>
             Accueil
           </Link>
@@ -236,14 +252,45 @@ export default function Navbar() {
                   className="block py-2 px-2 text-sm text-landes-forest font-semibold hover:bg-landes-forest/5 rounded-lg transition-colors">
                   Voir toutes les catégories →
                 </Link>
-                {CATEGORIES.map(cat => (
-                  <Link key={cat.slug} href={`/categories/${cat.slug}`}
-                    onClick={() => { setOpen(false); setMobileCatOpen(false); }}
-                    className="flex items-center gap-2 py-2 px-2 text-sm text-gray-700 hover:bg-landes-forest/5 hover:text-landes-forest rounded-lg transition-colors">
-                    <span>{cat.emoji}</span>
-                    <span>{cat.label}</span>
-                  </Link>
-                ))}
+                {CATEGORIES.map(cat => {
+                  const subs = SUBCATEGORIES[cat.label];
+                  const isOpen = mobileSubOpen === cat.slug;
+                  return (
+                    <div key={cat.slug}>
+                      <div className="flex items-center">
+                        <Link href={`/categories/${cat.slug}`}
+                          onClick={() => { setOpen(false); setMobileCatOpen(false); }}
+                          className="flex-1 flex items-center gap-2 py-2 px-2 text-sm text-gray-700 hover:bg-landes-forest/5 hover:text-landes-forest rounded-lg transition-colors">
+                          <span>{cat.emoji}</span>
+                          <span>{cat.label}</span>
+                        </Link>
+                        {subs && subs.length > 0 && (
+                          <button
+                            onClick={() => setMobileSubOpen(isOpen ? null : cat.slug)}
+                            className="p-2 text-gray-400 hover:text-landes-forest flex-shrink-0"
+                            aria-label={`Sous-catégories de ${cat.label}`}
+                          >
+                            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        )}
+                      </div>
+                      {subs && subs.length > 0 && isOpen && (
+                        <div className="ml-6 border-l border-gray-100 pl-3 space-y-0.5 mb-1">
+                          {subs.map(sub => (
+                            <Link
+                              key={sub}
+                              href={`/annuaire?category=${encodeURIComponent(cat.label)}&q=${encodeURIComponent(sub)}`}
+                              onClick={() => { setOpen(false); setMobileCatOpen(false); setMobileSubOpen(null); }}
+                              className="block py-1.5 px-2 text-xs text-gray-500 hover:text-landes-forest hover:bg-landes-forest/5 rounded-lg transition-colors leading-snug"
+                            >
+                              {sub}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

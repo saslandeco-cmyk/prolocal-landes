@@ -11,6 +11,7 @@ export interface Professional {
   category: string;
   subcategory?: string;
   activityTitle?: string;
+  shortDescription?: string;
   description: string;
   website?: string;
   socialLink?: string;
@@ -20,6 +21,11 @@ export interface Professional {
   lastName: string;
   email: string;
   phone: string;
+  whatsapp?: string;
+  complementaryOptions?: string[];
+  paymentMethod?: "cheque" | "card";
+  adBannerImage?: string;
+  seoKeywords?: string[];
   address: string;
   city: string;
   postalCode: string;
@@ -91,6 +97,8 @@ export interface Review {
   repliedAt?: string;
   flagged?: boolean;    // signalé comme abusif
   flaggedAt?: string;
+  verified?: boolean;      // identité de l'auteur vérifiée par code email
+  verifiedAt?: string;
 }
 
 export interface BlockedDate {
@@ -116,6 +124,11 @@ export interface OpeningHours {
 
 export interface DayHours {
   closed: boolean;
+  // Mode d'horaires : journée continue ou coupure matin/après-midi
+  mode?: "continuous" | "split";
+  // Journée continue
+  continuousOpen?:  string;
+  continuousClose?: string;
   // Matin
   morningOpen?:  string;
   morningClose?: string;
@@ -141,22 +154,20 @@ export const PLANS: Plan[] = [
   {
     id: "standard",
     name: "Standard",
-    price: 9,
-    color: "text-blue-700",
-    bgColor: "bg-blue-50 border-blue-200",
+    price: 0,
+    color: "text-gray-700",
+    bgColor: "bg-gray-50 border-gray-200",
     features: [
-      "Fiche entreprise basique",
-      "Coordonnées et adresse",
-      "Catégorie professionnelle",
-      "Visible dans l'annuaire",
+      "Fiche entreprise",
+      "Coordonnées et adresse (téléphone, WhatsApp et email)",
+      "1 catégorie",
       "Logo et bannière",
-      "Collecte d'avis clients",
     ],
   },
   {
     id: "premium",
     name: "Premium",
-    price: 19,
+    price: 9,
     highlight: true,
     color: "text-purple-700",
     bgColor: "bg-purple-50 border-purple-200",
@@ -165,28 +176,25 @@ export const PLANS: Plan[] = [
       "5 photos ou images d'illustration",
       "Horaires matin / après-midi",
       "Lien vers votre site web",
-      "Mise en avant dans les résultats",
+      "Mise en avant dans les résultats de recherche de votre commune",
       "Affichage d'1 service",
       "Lien vers 1 réseau social",
       "Collecte d'avis clients",
-      "Insertion de vos avis Google",
     ],
   },
   {
     id: "gold",
     name: "Gold",
-    price: 35,
+    price: 29,
     color: "text-yellow-700",
     bgColor: "bg-yellow-50 border-yellow-200",
     features: [
       "Tout le Premium",
-      "Position prioritaire",
-      "Emplacement professionnel à la une",
+      "Affichage prioritaire au niveau de tout le département",
+      "Badge recommandé",
       "Affichage de 3 services",
       "Support prioritaire",
       "Statistiques de visite",
-      "Éditeur de devis & facture (facturation électronique)",
-      "Gestionnaire de clients (CRM)",
     ],
   },
 ];
@@ -197,18 +205,127 @@ export const CATEGORIES = [
   "Bâtiment & Travaux",
   "Beauté & Bien-être",
   "Commerce & Vente",
-  "Culture & Loisirs",
-  "Éducation & Formation",
-  "Hébergement & Tourisme",
-  "Hôtellerie & Restauration",
+  "Culture & Élevage",
   "Immobilier",
   "Informatique & Numérique",
-  "Médical & Paramédical",
-  "Nature & Agriculture",
   "Services à la personne",
   "Sport & Fitness",
-  "Transport & Logistique",
+  "Transport de personnes",
 ];
+
+// Sous-catégories disponibles pour certaines catégories (facultatif pour le professionnel)
+export const SUBCATEGORIES: Record<string, string[]> = {
+  "Alimentation & Épicerie": [
+    "Alimentation générale",
+    "Boucherie / Charcuterie",
+    "Boulangerie / Pâtisserie",
+    "Caviste / Marchand de boissons",
+    "Épicerie fine",
+    "Fromagerie / Crèmerie",
+    "Poissonnerie",
+    "Primeurs",
+  ],
+  "Artisanat & Métiers d'art": [
+    "Archetier",
+    "Bijoutier-Joaillier",
+    "Céramiste",
+    "Chaudronnier",
+    "Décorateur sur céramique / Peintre sur faïence ou porcelaine",
+    "Doreur à la feuille",
+    "Ébéniste",
+    "Encadreur",
+    "Ferronnier d'art",
+    "Horloger",
+    "Luthier",
+    "Maroquinier",
+    "Souffleur de verre / Verrier à la main",
+    "Tailleur de pierre",
+    "Tapissier d'ameublement",
+    "Vitrailliste",
+  ],
+  "Bâtiment & Travaux": [
+    "Architecte",
+    "Carreleur",
+    "Charpentier",
+    "Couvreur",
+    "Électricien",
+    "Expert en bâtiment",
+    "Maçon",
+    "Menuisier",
+    "Peintre en bâtiment",
+    "Plaquiste",
+    "Plombier-chauffagiste",
+  ],
+  "Beauté & Bien-être": [
+    "Coiffeur",
+    "Esthéticienne",
+    "Maquilleur professionnel",
+    "Naturopathe",
+    "Praticien en massage bien-être",
+    "Prothésiste ongulaire",
+    "Sophrologue / Réflexologue",
+  ],
+  "Commerce & Vente": [
+    "Ameublement",
+    "Décoration",
+    "Électroménager / Multimédia",
+    "Ésotérique",
+    "Fleuriste",
+    "Friperie",
+    "Garage automobile",
+    "Habillement",
+    "Jardinerie",
+    "Librairie",
+    "Motoculture",
+    "Parfumerie",
+    "Pharmacie",
+    "Tabac / Presse",
+    "Troc / Dépôt vente",
+  ],
+  "Culture & Élevage": [
+    "Apiculteur / Apicultrice",
+    "Aquaculteur / Aquacultrice",
+    "Arboriculteur / Arboricultrice",
+    "Éleveur / Éleveuse",
+    "Horticulteur / Horticultrice",
+    "Maraîcher / Maraîchère",
+    "Viticulteur / Viticultrice",
+  ],
+  "Immobilier": [
+    "Agence immobilière",
+    "Conciergerie",
+    "Diagnostique technique",
+    "Gestionnaire de bien",
+    "Mandataire immobilier",
+    "Syndic de copropriété",
+  ],
+  "Informatique & Numérique": [
+    "Agence Web",
+    "Community manager",
+    "Cybersécurité",
+    "Graphiste",
+    "Informaticien",
+    "Webdesigner",
+    "Webmaster indépendant",
+  ],
+  "Services à la personne": [
+    "Aide à domicile",
+    "Assistant administratif",
+    "Assistant informatique et Internet",
+    "Employé de ménage / Repassage",
+    "Garde d'enfants",
+    "Travaux de jardinerie",
+  ],
+  "Sport & Fitness": [
+    "Coach sportif",
+    "Salle de sport et de fitness",
+  ],
+  "Transport de personnes": [
+    "Ambulance",
+    "Taxi",
+    "Transport de groupe",
+  ],
+};
 
 export const LANDES_CITIES = [
   "Mont-de-Marsan",
@@ -237,6 +354,8 @@ export const LANDES_CITIES = [
 /** Formate les horaires d'un jour en chaîne lisible */
 export function formatDayHours(h: DayHours): string {
   if (h.closed) return "Fermé";
+  if (h.mode === "continuous" && h.continuousOpen && h.continuousClose)
+    return `${h.continuousOpen}–${h.continuousClose}`;
   const parts: string[] = [];
   if (h.morningOpen && h.morningClose)
     parts.push(`${h.morningOpen}–${h.morningClose}`);

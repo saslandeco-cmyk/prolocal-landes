@@ -23,7 +23,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "111222333", legalForm: "SARL",
     description: "<p>École de surf reconnue sur la côte landaise. Cours collectifs et particuliers pour tous niveaux, du débutant au confirmé. Location de matériel (planches, combinaisons). Stages vacances enfants et adultes. Nos moniteurs diplômés d'État vous accompagnent en toute sécurité sur les meilleures vagues des Landes.</p>",
     firstName: "Julien", lastName: "Waves", email: "surf@bisca.fr", phone: "05 58 11 22 33",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s2", companyName: "Salle de Sport Atlantic Gym", category: CATEGORY,
@@ -32,7 +32,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "222333444", legalForm: "SAS",
     description: "<p>Salle de sport et fitness au cœur de Mont-de-Marsan. Musculation, cardio, cours collectifs (yoga, pilates, zumba, bodypump). Coaching personnalisé avec nos coachs certifiés. Programmes nutrition et suivi personnalisé. Accès 7j/7 avec badge. Essai gratuit sur rendez-vous.</p>",
     firstName: "Laura", lastName: "Fit", email: "gym@atlantic.fr", phone: "05 58 22 33 44",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s3", companyName: "Vélo Évasion Landes", category: CATEGORY,
@@ -41,7 +41,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "333444555", legalForm: "EURL",
     description: "<p>Location de vélos électriques, VTT et vélos de route. Circuits guidés en forêt landaise et sur les 200 km de pistes cyclables. Balades en famille, sorties sportives et séjours vélo tout compris. Livraison possible sur votre lieu de vacances. Le meilleur moyen de découvrir les Landes autrement.</p>",
     firstName: "Pierre", lastName: "Vélo", email: "velo@mimizan.fr", phone: "05 58 33 44 55",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s4", companyName: "Tennis Club Dacquois", category: CATEGORY,
@@ -50,7 +50,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "444555666", legalForm: "Association",
     description: "<p>Club de tennis avec 8 courts extérieurs et 3 couverts. Cours enfants et adultes tous niveaux. Stages intensifs pendant les vacances. 4 terrains de padel récemment construits. Compétitions homologuées FFT. Location de courts à l'heure. Boutique et matériel de tennis sur place.</p>",
     firstName: "Marc", lastName: "Tennis", email: "tennis@dax.fr", phone: "05 58 44 55 66",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s5", companyName: "Centre Équestre des Pins", category: CATEGORY,
@@ -59,7 +59,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "555666777", legalForm: "SARL",
     description: "<p>Centre équestre au cœur de la forêt landaise. Cours d'équitation pour enfants et adultes, toutes disciplines (CSO, dressage, équitation de loisir). Pension complète et demi-pension pour chevaux. Randonnées équestres en forêt de 2h à plusieurs jours. Stages vacances. Poney-club pour les enfants.</p>",
     firstName: "Sophie", lastName: "Equestre", email: "equestre@sabres.fr", phone: "05 58 55 66 77",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s6", companyName: "Yoga & Bien-être Hossegor", category: CATEGORY,
@@ -68,7 +68,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "666777888", legalForm: "EI",
     description: "<p>Studio de yoga, méditation et bien-être face à l'océan. Cours de yoga tous styles (vinyasa, yin, ashtanga, prénatal). Séances de méditation guidée et yoga nidra. Retraites bien-être le week-end. Cours particuliers et cours en entreprise. Certifiée RYT-500 Yoga Alliance. En ligne ou en présentiel.</p>",
     firstName: "Marie", lastName: "Zen", email: "yoga@hossegor.fr", phone: "06 45 67 89 01",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s7", companyName: "Parc Accrobranche Forêt 40", category: CATEGORY,
@@ -77,7 +77,7 @@ const DEMO_SPORT_PROS: Professional[] = [
     siren: "777888999", legalForm: "SAS",
     description: "<p>Parc d'accrobranche et d'aventure en forêt de pins. 12 parcours de difficulté croissante, du niveau enfant (3 ans) au niveau expert. Tyroliennes géantes, ponts de singe, sauts dans le vide. Ouvert toute l'année (week-ends et vacances). Groupes et team building bienvenus. Équipement fourni sur place.</p>",
     firstName: "Thomas", lastName: "Aventure", email: "accro@parentis.fr", phone: "05 58 66 77 88",
-    logo: "", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+    logo: "", banner: "/banners/sport.jpg", photos: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
   },
   {
     id: "s8", companyName: "Kitesurf Academy Capbreton", category: CATEGORY,
@@ -128,7 +128,7 @@ export default function SportPage() {
     const q = query.toLowerCase();
     const hits = new Set<string>();
     pros.forEach(p => {
-      if (p.companyName.toLowerCase().includes(q)) hits.add(p.companyName);
+      if ((p.companyName ?? "").toLowerCase().includes(q)) hits.add(p.companyName);
       (p.services || []).forEach(s => { if (s.toLowerCase().includes(q)) hits.add(s); });
     });
     POPULAR_CAT.forEach(k => { if (k.toLowerCase().includes(q)) hits.add(k); });
@@ -156,13 +156,13 @@ export default function SportPage() {
     const qLow = q.trim().toLowerCase();
     const locLow = loc.trim().toLowerCase();
     setFiltered(pros.filter(p => {
-      const desc = p.description.replace(/<[^>]*>/g, " ").toLowerCase();
+      const desc = (p.description ?? "").replace(/<[^>]*>/g, " ").toLowerCase();
       const svcs = (p.services || []).join(" ").toLowerCase();
       const matchQ = !qLow || (
-        p.companyName.toLowerCase().includes(qLow) || desc.includes(qLow) ||
-        p.city.toLowerCase().includes(qLow) || svcs.includes(qLow)
+        (p.companyName ?? "").toLowerCase().includes(qLow) || desc.includes(qLow) ||
+        (p.city ?? "").toLowerCase().includes(qLow) || svcs.includes(qLow)
       );
-      const matchLoc = !locLow || p.city.toLowerCase().includes(locLow) || p.postalCode.includes(locLow);
+      const matchLoc = !locLow || (p.city ?? "").toLowerCase().includes(locLow) || (p.postalCode ?? "").includes(locLow);
       return matchQ && matchLoc;
     }));
   }, [pros]);
@@ -239,60 +239,6 @@ export default function SportPage() {
             </div>
           </div>
 
-          {/* Formulaire pleine largeur */}
-          <form onSubmit={e => e.preventDefault()} className="w-full bg-white rounded-2xl shadow-2xl overflow-visible mb-5">
-            <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-              <div className="flex-1 relative" ref={queryRef}>
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <Search className="w-5 h-5 text-landes-sage flex-shrink-0" />
-                  <input type="text" value={query}
-                    onChange={e => { handleSearch(e.target.value); setShowSug(true); }}
-                    onFocus={() => setShowSug(true)}
-                    placeholder="Métier, entreprise, discipline…"
-                    className="w-full text-gray-800 placeholder-gray-400 text-base focus:outline-none bg-transparent" autoComplete="off" />
-                  {query && <button type="button" onClick={() => { handleSearch(""); setSuggestions([]); }} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0"><X className="w-4 h-4" /></button>}
-                </div>
-                {showSug && (suggestions.length > 0 || !query) && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-b-xl shadow-lg z-50 overflow-hidden">
-                    {!query && <div className="px-4 pt-3 pb-1 flex items-center gap-1.5 text-xs text-gray-400 font-medium"><TrendingUp className="w-3.5 h-3.5" /> Recherches populaires</div>}
-                    {(query ? suggestions : POPULAR_CAT).map((s, i) => (
-                      <button key={i} type="button" onMouseDown={() => { handleSearch(s); setShowSug(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-landes-forest/5 text-left transition-colors">
-                        <Search className="w-3.5 h-3.5 text-landes-sage flex-shrink-0" />
-                        <span className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: query ? s.replace(new RegExp(`(${query})`, "gi"), "<strong>$1</strong>") : s }} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 relative" ref={cityRef}>
-                <div className="flex items-center gap-3 px-5 py-4">
-                  <MapPin className="w-5 h-5 text-landes-sage flex-shrink-0" />
-                  <input type="text" value={location}
-                    onChange={e => { handleLocation(e.target.value); setShowCity(true); }}
-                    onFocus={() => setShowCity(true)}
-                    placeholder="Ville ou code postal…"
-                    className="w-full text-gray-800 placeholder-gray-400 text-base focus:outline-none bg-transparent" autoComplete="off" />
-                  {location && <button type="button" onClick={() => { handleLocation(""); setShowCity(false); }} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0"><X className="w-4 h-4" /></button>}
-                </div>
-                {showCity && citySuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-b-xl shadow-lg z-50 overflow-hidden">
-                    {citySuggestions.map((c, i) => (
-                      <button key={i} type="button" onMouseDown={() => { handleLocation(c); setShowCity(false); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-landes-forest/5 text-left transition-colors">
-                        <MapPin className="w-3.5 h-3.5 text-landes-sage flex-shrink-0" />
-                        <span className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: c.replace(new RegExp(`(${location})`, "gi"), "<strong>$1</strong>") }} />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button type="submit"
-                className="flex items-center justify-center gap-2 bg-landes-forest hover:bg-landes-pine text-white font-semibold text-base px-8 py-4 transition-colors whitespace-nowrap rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl">
-                <Search className="w-5 h-5" /><span>Rechercher</span>
-              </button>
-            </div>
-          </form>
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
@@ -332,11 +278,68 @@ export default function SportPage() {
               </div>
             )}
           </div>
+
+          {/* Formulaire de recherche — sous la carte */}
+          <div className="mt-6">
+            <form onSubmit={e => { e.preventDefault(); document.getElementById("resultats")?.scrollIntoView({ behavior: "smooth" }); }} className="w-full bg-white rounded-2xl shadow-2xl overflow-visible">
+              <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                <div className="flex-1 relative" ref={queryRef}>
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <Search className="w-5 h-5 text-landes-sage flex-shrink-0" />
+                    <input type="text" value={query}
+                      onChange={e => { handleSearch(e.target.value); setShowSug(true); }}
+                      onFocus={() => setShowSug(true)}
+                      placeholder="Métier, entreprise, discipline…"
+                      className="w-full text-gray-800 placeholder-gray-400 text-base focus:outline-none bg-transparent" autoComplete="off" />
+                    {query && <button type="button" onClick={() => { handleSearch(""); setSuggestions([]); }} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0"><X className="w-4 h-4" /></button>}
+                  </div>
+                  {showSug && (suggestions.length > 0 || !query) && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-b-xl shadow-lg z-50 overflow-hidden">
+                      {!query && <div className="px-4 pt-3 pb-1 flex items-center gap-1.5 text-xs text-gray-400 font-medium"><TrendingUp className="w-3.5 h-3.5" /> Recherches populaires</div>}
+                      {(query ? suggestions : POPULAR_CAT).map((s, i) => (
+                        <button key={i} type="button" onMouseDown={() => { handleSearch(s); setShowSug(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-landes-forest/5 text-left transition-colors">
+                          <Search className="w-3.5 h-3.5 text-landes-sage flex-shrink-0" />
+                          <span className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: query ? s.replace(new RegExp(`(${query})`, "gi"), "<strong>$1</strong>") : s }} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 relative" ref={cityRef}>
+                  <div className="flex items-center gap-3 px-5 py-4">
+                    <MapPin className="w-5 h-5 text-landes-sage flex-shrink-0" />
+                    <input type="text" value={location}
+                      onChange={e => { handleLocation(e.target.value); setShowCity(true); }}
+                      onFocus={() => setShowCity(true)}
+                      placeholder="Ville ou code postal…"
+                      className="w-full text-gray-800 placeholder-gray-400 text-base focus:outline-none bg-transparent" autoComplete="off" />
+                    {location && <button type="button" onClick={() => { handleLocation(""); setShowCity(false); }} className="text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0"><X className="w-4 h-4" /></button>}
+                  </div>
+                  {showCity && citySuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-100 rounded-b-xl shadow-lg z-50 overflow-hidden">
+                      {citySuggestions.map((c, i) => (
+                        <button key={i} type="button" onMouseDown={() => { handleLocation(c); setShowCity(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-landes-forest/5 text-left transition-colors">
+                          <MapPin className="w-3.5 h-3.5 text-landes-sage flex-shrink-0" />
+                          <span className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: c.replace(new RegExp(`(${location})`, "gi"), "<strong>$1</strong>") }} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button type="submit"
+                  className="flex items-center justify-center gap-2 bg-landes-forest hover:bg-landes-pine text-white font-semibold text-base px-8 py-4 transition-colors whitespace-nowrap rounded-b-2xl sm:rounded-b-none sm:rounded-r-2xl">
+                  <Search className="w-5 h-5" /><span>Rechercher</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
 
       {/* ── RECHERCHE + LISTE ── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <section id="resultats" className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12 scroll-mt-24">
 
         {/* Bandeau résultats */}
         <div className="mb-8">
@@ -362,7 +365,7 @@ export default function SportPage() {
 
         {/* Grille de cards */}
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(pro => (
               <div key={pro.id} id={`pro-${pro.id}`}>
                 <ProfessionalCard pro={pro} />

@@ -19,6 +19,8 @@ const TIMES = Array.from({ length: 48 }, (_, i) => {
 
 const DEFAULT_DAY: DayHours = {
   closed: false,
+  mode: "split",
+  continuousOpen: "09:00", continuousClose: "18:00",
   morningOpen: "09:00", morningClose: "12:30",
   afternoonOpen: "14:00", afternoonClose: "18:00",
 };
@@ -35,8 +37,10 @@ export default function OpeningHoursEditor({ value, onChange }: Props) {
     onChange({ ...value, alwaysOpen: !isAlwaysOpen });
   };
 
-  const get = (key: string): DayHours =>
-    (value as any)[key] ?? { ...DEFAULT_DAY };
+  const get = (key: string): DayHours => {
+    const existing = (value as any)[key];
+    return { ...DEFAULT_DAY, ...(existing ?? {}) };
+  };
 
   const set = (key: string, patch: Partial<DayHours>) =>
     onChange({ ...value, [key]: { ...get(key), ...patch } });
@@ -89,11 +93,8 @@ export default function OpeningHoursEditor({ value, onChange }: Props) {
       {!isAlwaysOpen && (
         <div className="space-y-2">
           {/* Header legend */}
-          <div className="hidden sm:grid sm:grid-cols-[96px_80px_1fr_1fr] gap-2 px-4 pb-1">
-            <span />
-            <span className="text-xs text-gray-400 font-medium">Statut</span>
-            <span className="text-xs text-gray-400 font-medium pl-1">Matin</span>
-            <span className="text-xs text-gray-400 font-medium pl-1">Après-midi</span>
+          <div className="hidden sm:flex gap-2 px-4 pb-1">
+            <span className="text-xs text-gray-400 font-medium">Choisissez, pour chaque jour, entre une journée continue ou une coupure matin / après-midi.</span>
           </div>
 
           {DAYS.map(({ key, label }) => {
@@ -128,27 +129,76 @@ export default function OpeningHoursEditor({ value, onChange }: Props) {
                   </div>
 
                   {!d.closed && (
-                    <div className="flex flex-wrap gap-4 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-orange-400 font-medium w-10 flex-shrink-0">Matin</span>
-                        <TimeSelect value={d.morningOpen || ""} onChange={v => set(key, { morningOpen: v })} />
-                        <span className="text-gray-300 text-sm">–</span>
-                        <TimeSelect value={d.morningClose || ""} onChange={v => set(key, { morningClose: v })} />
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-blue-400 font-medium w-12 flex-shrink-0">Après-m.</span>
-                        <TimeSelect value={d.afternoonOpen || ""} onChange={v => set(key, { afternoonOpen: v })} />
-                        <span className="text-gray-300 text-sm">–</span>
-                        <TimeSelect value={d.afternoonClose || ""} onChange={v => set(key, { afternoonClose: v })} />
-                      </div>
-                      {key === "monday" && (
+                    <div className="flex flex-col gap-2 flex-1 min-w-[260px]">
+                      {/* Sélecteur de mode : Continu / Matin + Après-midi */}
+                      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
                         <button
                           type="button"
-                          onClick={() => copyWeekdays("monday")}
-                          className="text-xs text-landes-forest underline underline-offset-2 hover:text-landes-pine self-center ml-1"
+                          onClick={() => set(key, { mode: "continuous" })}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                            (d.mode ?? "split") === "continuous"
+                              ? "bg-white text-landes-forest shadow-sm"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
                         >
-                          Copier Lu–Ve
+                          Journée continue
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => set(key, { mode: "split" })}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                            (d.mode ?? "split") === "split"
+                              ? "bg-white text-landes-forest shadow-sm"
+                              : "text-gray-500 hover:text-gray-700"
+                          }`}
+                        >
+                          Matin / Après-midi
+                        </button>
+                      </div>
+
+                      {/* Champs horaires selon le mode */}
+                      {d.mode === "continuous" ? (
+                        <div className="flex flex-wrap items-center gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-landes-forest font-medium w-14 flex-shrink-0">Ouvert</span>
+                            <TimeSelect value={d.continuousOpen || ""} onChange={v => set(key, { continuousOpen: v })} />
+                            <span className="text-gray-300 text-sm">–</span>
+                            <TimeSelect value={d.continuousClose || ""} onChange={v => set(key, { continuousClose: v })} />
+                          </div>
+                          {key === "monday" && (
+                            <button
+                              type="button"
+                              onClick={() => copyWeekdays("monday")}
+                              className="text-xs text-landes-forest underline underline-offset-2 hover:text-landes-pine self-center ml-1"
+                            >
+                              Copier Lu–Ve
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-orange-400 font-medium w-10 flex-shrink-0">Matin</span>
+                            <TimeSelect value={d.morningOpen || ""} onChange={v => set(key, { morningOpen: v })} />
+                            <span className="text-gray-300 text-sm">–</span>
+                            <TimeSelect value={d.morningClose || ""} onChange={v => set(key, { morningClose: v })} />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-blue-400 font-medium w-12 flex-shrink-0">Après-m.</span>
+                            <TimeSelect value={d.afternoonOpen || ""} onChange={v => set(key, { afternoonOpen: v })} />
+                            <span className="text-gray-300 text-sm">–</span>
+                            <TimeSelect value={d.afternoonClose || ""} onChange={v => set(key, { afternoonClose: v })} />
+                          </div>
+                          {key === "monday" && (
+                            <button
+                              type="button"
+                              onClick={() => copyWeekdays("monday")}
+                              className="text-xs text-landes-forest underline underline-offset-2 hover:text-landes-pine self-center ml-1"
+                            >
+                              Copier Lu–Ve
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

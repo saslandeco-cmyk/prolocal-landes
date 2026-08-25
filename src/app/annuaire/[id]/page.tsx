@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import {
   MapPin, Phone, Globe, Mail, ArrowLeft, Clock,
   Building2, Shield, ExternalLink, Share2, CheckCircle,
-  X, Images, ChevronLeft, ChevronRight, MessageCircle, Send, Loader2,
+  X, Images, ChevronLeft, ChevronRight, MessageCircle, Send, Loader2, Award,
 } from "lucide-react";
 import { getProfessionalById, recordVisit, rehydrateAsync } from "@/lib/storage";
 import { Professional, formatDayHours } from "@/types";
@@ -42,6 +42,8 @@ function isOpenNow(pro: Professional): { open: boolean; label: string } {
     return now >= oh*60+om && now < ch*60+cm;
   };
 
+  if (hours.mode === "continuous" && inRange(hours.continuousOpen, hours.continuousClose))
+    return { open: true, label: `Ouvert · Ferme à ${hours.continuousClose}` };
   if (inRange(hours.morningOpen, hours.morningClose))
     return { open: true, label: `Ouvert · Ferme à ${hours.morningClose}` };
   if (inRange(hours.afternoonOpen, hours.afternoonClose))
@@ -274,17 +276,12 @@ export default function ProfessionalProfilePage() {
     "Bâtiment & Travaux":         "batiment",
     "Beauté & Bien-être":         "beaute",
     "Commerce & Vente":           "commerce",
-    "Culture & Loisirs":          "culture",
-    "Éducation & Formation":      "education",
-    "Hébergement & Tourisme":     "hebergement",
-    "Hôtellerie & Restauration":  "restauration",
     "Immobilier":                 "immobilier",
     "Informatique & Numérique":   "informatique",
-    "Médical & Paramédical":      "medical",
-    "Nature & Agriculture":       "agriculture",
+    "Culture & Élevage":       "agriculture",
     "Services à la personne":     "services",
     "Sport & Fitness":            "sport",
-    "Transport & Logistique":     "transport",
+    "Transport de personnes":     "transport",
   };
   const categorySlug = CATEGORY_SLUGS[pro.category] || null;
 
@@ -303,7 +300,7 @@ export default function ProfessionalProfilePage() {
 
       {/* BANNER */}
       <div className="relative mt-4 max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="w-full rounded-2xl overflow-hidden h-44 sm:h-56 relative">
+        <div className={`w-full rounded-2xl overflow-hidden h-44 sm:h-56 relative ${pro.plan === "gold" ? "ring-4 ring-amber-400/70" : ""}`}>
           {(() => {
             const src = getBanner(pro.banner, pro.category);
             return src
@@ -316,7 +313,7 @@ export default function ProfessionalProfilePage() {
 
         {/* Logo + name overlaid on banner */}
         <div className="absolute bottom-0 left-8 sm:left-10 translate-y-1/2 flex items-end gap-4">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white flex-shrink-0">
+          <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 shadow-lg overflow-hidden bg-white flex-shrink-0 ${pro.plan === "gold" ? "border-amber-400" : "border-white"}`}>
             {pro.logo
               ? <img src={pro.logo} alt="Logo" className="w-full h-full object-cover" />
               : <div className="w-full h-full bg-gradient-to-br from-landes-forest to-landes-sage flex items-center justify-center text-white font-bold text-2xl">
@@ -339,28 +336,33 @@ export default function ProfessionalProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Gauche — nom, badges, catégorie, statut */}
           <div className="lg:col-span-2">
-            {/* Ligne 1 : nom + badge vérifié */}
+            {/* Ligne 1 : nom + badge vérifié + badge Recommandé (Gold) */}
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-2xl sm:text-3xl font-bold text-landes-pine">{pro.companyName}</p>
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 border border-green-200 px-2.5 py-1 rounded-full">
                 <CheckCircle className="w-3 h-3" /> Vérifié Prolocal-Landes
               </span>
+              {pro.plan === "gold" && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-gradient-to-r from-amber-500 to-yellow-500 border border-amber-400 px-2.5 py-1 rounded-full shadow-sm">
+                  <Award className="w-3 h-3" /> Recommandé
+                </span>
+              )}
             </div>
-            {/* Ligne 2 : badges services (Premium et Gold uniquement) */}
+            {/* Ligne 2 : titre d'activité */}
+            {pro.activityTitle && (
+              <h1 className="text-base font-semibold text-landes-pine mt-1">{pro.activityTitle}</h1>
+            )}
+            {/* Ligne 3 : badges services (Premium et Gold uniquement) */}
             {pro.plan !== "standard" && pro.services && pro.services.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 mt-2">
+              <h2 className="flex flex-wrap items-center gap-2 mt-2">
                 {pro.services.map((svc, i) => {
                   const styles = ["bg-landes-forest text-white","bg-landes-sage text-white","bg-amber-500 text-white"];
                   return <span key={i} className={`text-xs font-semibold px-3 py-1 rounded-full ${styles[i % styles.length]}`}>{svc}</span>;
                 })}
-              </div>
-            )}
-            {/* Ligne 3 : titre d'activité */}
-            {pro.activityTitle && (
-              <h1 className="text-base font-semibold text-landes-pine mt-2">{pro.activityTitle}</h1>
+              </h2>
             )}
             <p className="text-landes-sage font-medium mt-0.5 flex items-center gap-3">
-              {pro.category}
+              {pro.category}{pro.subcategory && <span className="text-gray-400 font-normal"> · {pro.subcategory}</span>}
               {proRating && <StarDisplay rating={proRating.avg} count={proRating.count} size="sm" />}
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-2">
@@ -402,7 +404,7 @@ export default function ProfessionalProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6 lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:col-span-2 space-y-6">
 
             {/* About */}
             <div className="card p-6">
@@ -426,14 +428,14 @@ export default function ProfessionalProfilePage() {
           </div>
 
           {/* RIGHT */}
-          <div className="space-y-5">
+          <div className="min-w-0 space-y-5 lg:sticky lg:top-24 lg:self-start">
             <div className="card p-6 space-y-4">
               <p className="font-bold text-landes-pine text-lg">Contacter</p>
 
               {/* Bouton Poser une question */}
               <button
                 onClick={() => { setShowQuestion(true); setQuestionSent(false); }}
-                className="w-full flex items-center justify-center gap-2 bg-landes-forest text-white font-semibold py-3 px-4 rounded-xl hover:bg-landes-pine transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-white text-landes-forest font-semibold py-3 px-4 rounded-xl border-2 border-landes-forest hover:bg-landes-forest hover:text-white transition-colors"
               >
                 <MessageCircle className="w-5 h-5" />
                 Poser une question
@@ -441,25 +443,31 @@ export default function ProfessionalProfilePage() {
 
 
               {pro.phone && (
-                <a href={`tel:${pro.phone}`} className="flex items-center gap-3 p-3 bg-landes-forest/5 hover:bg-landes-forest/10 rounded-xl transition-colors group">
-                  <div className="w-10 h-10 bg-landes-forest text-white rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400">Téléphone</p>
-                    <p className="font-semibold text-landes-pine group-hover:text-landes-forest">{pro.phone}</p>
-                  </div>
+                <a
+                  href={`tel:${pro.phone}`}
+                  className="flex items-center justify-center gap-2 w-full bg-landes-forest text-white font-semibold py-3 px-4 rounded-xl hover:bg-landes-pine transition-colors"
+                >
+                  <Phone className="w-5 h-5" /> Appeler
                 </a>
               )}
 
-              <a href={`mailto:${pro.email}`} className="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors group">
-                <div className="w-10 h-10 bg-gray-200 text-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-gray-400">Email</p>
-                  <p className="font-medium text-gray-700 truncate text-sm">{pro.email}</p>
-                </div>
+              {pro.whatsapp && (
+                <a
+                  href={`https://wa.me/${pro.whatsapp.replace(/[^0-9]/g, "").replace(/^0/, "33")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-semibold py-3 px-4 rounded-xl hover:bg-[#1ea952] transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12.001 2C6.478 2 2.001 6.477 2.001 12c0 1.99.583 3.845 1.588 5.401L2 22l4.735-1.562A9.955 9.955 0 0 0 12.001 22C17.524 22 22 17.523 22 12S17.524 2 12.001 2zm0 18.116c-1.774 0-3.42-.523-4.804-1.421l-.345-.207-3.246 1.071 1.085-3.166-.225-.326A8.096 8.096 0 0 1 3.885 12c0-4.478 3.638-8.116 8.116-8.116 4.478 0 8.116 3.638 8.116 8.116 0 4.478-3.638 8.116-8.116 8.116z"/></svg>
+                  WhatsApp
+                </a>
+              )}
+
+              <a
+                href={`mailto:${pro.email}`}
+                className="flex items-center justify-center gap-2 w-full bg-landes-ocean/10 text-landes-ocean font-semibold py-3 px-4 rounded-xl hover:bg-landes-ocean/20 transition-colors border border-landes-ocean/20"
+              >
+                <Mail className="w-5 h-5" /> Envoyer un email
               </a>
 
               {pro.website && (
@@ -523,9 +531,9 @@ export default function ProfessionalProfilePage() {
                 <div className="w-10 h-10 bg-landes-sand/40 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
                   <MapPin className="w-4 h-4 text-landes-dune" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs text-gray-400 mb-0.5">Adresse</p>
-                  <p className="text-sm font-medium text-gray-700 leading-snug">{pro.address}<br />{pro.postalCode} {pro.city}</p>
+                  <p className="text-sm font-medium text-gray-700 leading-snug break-words">{pro.address}<br />{pro.postalCode} {pro.city}</p>
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${pro.address} ${pro.city}`)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="text-xs text-landes-forest hover:underline mt-1 inline-flex items-center gap-1">

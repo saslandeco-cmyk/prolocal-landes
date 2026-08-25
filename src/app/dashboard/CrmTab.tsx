@@ -358,7 +358,7 @@ export default function CrmTab({ pro }: { pro: Professional }) {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
           <div>
-            <h2 className="text-lg font-bold text-landes-pine">Clients</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Clients</h2>
             <p className="text-sm text-gray-500">
               Les clients sont ajoutés automatiquement lors de la création d'un devis ou d'une facture.
             </p>

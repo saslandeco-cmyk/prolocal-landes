@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Star, ChevronLeft, ChevronRight, CheckCircle, User, Flag, MessageSquare } from "lucide-react";
+import { Star, ChevronLeft, ChevronRight, CheckCircle, User, Flag, MessageSquare, ShieldCheck, Loader2 } from "lucide-react";
 import { getApprovedReviewsByPro, saveReview, generateId, reviewExists, flagReview } from "@/lib/storage";
+import { sendVerificationCode, verifyCode, getResendCooldown } from "@/lib/reviewVerification";
 import type { Review } from "@/types";
 
 interface Props {
@@ -55,7 +56,14 @@ function ReviewCard({ review, onFlag }: { review: Review; onFlag: () => void }) 
             {initials}
           </div>
           <div>
-            <p className="font-semibold text-landes-pine text-sm">{review.firstName} {review.lastName}</p>
+            <p className="font-semibold text-landes-pine text-sm flex items-center gap-1.5">
+              {review.firstName} {review.lastName}
+              {review.verified && (
+                <span title="Identité de l'auteur vérifiée par email" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full leading-none">
+                  <ShieldCheck className="w-3 h-3" /> Vérifié
+                </span>
+              )}
+            </p>
             <p className="text-xs text-gray-400">{date}</p>
           </div>
         </div>
@@ -95,10 +103,23 @@ function ReviewCard({ review, onFlag }: { review: Review; onFlag: () => void }) 
 
 // ── Formulaire seul ──────────────────────────────────────────────
 function ReviewForm({ proId, companyName }: { proId: string; companyName: string }) {
+  const [step, setStep] = useState<"form" | "verify" | "done">("form");
   const [form, setForm]       = useState({ firstName: "", lastName: "", email: "", rating: 0, text: "" });
   const [errors, setErrors]   = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Vérification email
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [demoCode, setDemoCode] = useState("");
+  const [cooldown, setCooldown] = useState(0);
+  const [verifying, setVerifying] = useState(false);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setInterval(() => setCooldown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [cooldown]);
 
   const upd = (k: string, v: string | number) => {
     setForm(p => ({ ...p, [k]: v }));
@@ -120,12 +141,54 @@ function ReviewForm({ proId, companyName }: { proId: string; companyName: string
     return e;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Étape 1 → envoi du code de vérification
+  const handleRequestCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 500));
+    const result = sendVerificationCode(proId, form.email.trim());
+    setLoading(false);
+    if (!result.ok) {
+      setErrors(p => ({ ...p, email: result.error || "Erreur d'envoi du code." }));
+      if (result.cooldownRemaining) setCooldown(result.cooldownRemaining);
+      return;
+    }
+    setDemoCode(result.demoCode || "");
+    setCode("");
+    setCodeError("");
+    setCooldown(getResendCooldown(proId, form.email.trim()) || 60);
+    setStep("verify");
+  };
+
+  // Renvoi du code
+  const handleResendCode = async () => {
+    if (cooldown > 0) return;
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 400));
+    const result = sendVerificationCode(proId, form.email.trim());
+    setLoading(false);
+    if (!result.ok) {
+      setCodeError(result.error || "Erreur d'envoi du code.");
+      if (result.cooldownRemaining) setCooldown(result.cooldownRemaining);
+      return;
+    }
+    setDemoCode(result.demoCode || "");
+    setCodeError("");
+    setCooldown(60);
+  };
+
+  // Étape 2 → vérification du code puis publication de l'avis
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (code.trim().length !== 6) { setCodeError("Veuillez saisir les 6 chiffres du code."); return; }
+    setVerifying(true);
+    await new Promise(r => setTimeout(r, 400));
+    const result = verifyCode(proId, form.email.trim(), code.trim());
+    setVerifying(false);
+    if (!result.ok) { setCodeError(result.error || "Code invalide."); return; }
+
     saveReview({
       id: generateId(), proId,
       firstName: form.firstName.trim(),
@@ -135,23 +198,81 @@ function ReviewForm({ proId, companyName }: { proId: string; companyName: string
       text:      form.text.trim(),
       createdAt: new Date().toISOString(),
       status:    "pending",
+      verified:  true,
+      verifiedAt: new Date().toISOString(),
     });
-    setSubmitted(true);
-    setLoading(false);
+    setStep("done");
   };
 
-  if (submitted) {
+  if (step === "done") {
     return (
       <div className="card p-8 flex flex-col items-center text-center gap-4">
         <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
           <CheckCircle className="w-7 h-7 text-green-600" />
         </div>
         <div>
-          <p className="text-lg font-bold text-landes-pine mb-1">Merci pour votre avis !</p>
+          <p className="text-lg font-bold text-landes-pine mb-1">Merci pour votre avis vérifié !</p>
           <p className="text-gray-500 text-sm leading-relaxed">
-            Votre avis sera publié dans les 24h à 48h après validation par notre équipe.
+            Votre identité a été confirmée par email. Votre avis sera publié dans les 24h à 48h après validation par notre équipe.
           </p>
         </div>
+      </div>
+    );
+  }
+
+  if (step === "verify") {
+    return (
+      <div className="card p-6">
+        <div className="flex items-center gap-2 mb-1">
+          <ShieldCheck className="w-5 h-5 text-landes-forest flex-shrink-0" />
+          <p className="font-bold text-landes-pine text-lg">Vérifiez votre identité</p>
+        </div>
+        <p className="text-gray-500 text-sm mb-4">
+          Un code à 6 chiffres a été envoyé à <strong className="text-landes-pine">{form.email}</strong> pour confirmer que cet avis est bien le vôtre.
+        </p>
+
+        {/* Encart mode démonstration — à retirer une fois l'envoi email réel branché (Resend, etc.) */}
+        {demoCode && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
+            <p className="text-xs font-semibold text-amber-700 mb-0.5">Mode démonstration — aucun service d&apos;envoi d&apos;email n&apos;est encore configuré</p>
+            <p className="text-xs text-amber-700">
+              En production, ce code serait envoyé par email. Pour tester, voici le code généré : <strong className="tracking-widest text-sm">{demoCode}</strong>
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleVerifyCode} className="space-y-4" noValidate>
+          <div>
+            <label className="label">Code de vérification *</label>
+            <input
+              value={code}
+              onChange={e => { setCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }}
+              inputMode="numeric"
+              maxLength={6}
+              className={`input-field text-center text-2xl tracking-[0.5em] font-bold ${codeError ? "border-red-400" : ""}`}
+              placeholder="000000"
+            />
+            {codeError && <p className="text-red-500 text-xs mt-1">{codeError}</p>}
+          </div>
+
+          <button type="submit" disabled={verifying || code.length !== 6}
+            className="btn-primary w-full flex items-center justify-center gap-2 py-3 disabled:opacity-50">
+            {verifying
+              ? <><Loader2 className="w-4 h-4 animate-spin" />Vérification…</>
+              : <><ShieldCheck className="w-4 h-4" />Vérifier et publier mon avis</>
+            }
+          </button>
+
+          <div className="flex items-center justify-between text-xs">
+            <button type="button" onClick={() => setStep("form")} className="text-gray-400 hover:text-gray-600">
+              ← Modifier mes informations
+            </button>
+            <button type="button" onClick={handleResendCode} disabled={cooldown > 0 || loading}
+              className="text-landes-forest font-medium hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
+              {cooldown > 0 ? `Renvoyer le code (${cooldown}s)` : "Renvoyer le code"}
+            </button>
+          </div>
+        </form>
       </div>
     );
   }
@@ -160,7 +281,13 @@ function ReviewForm({ proId, companyName }: { proId: string; companyName: string
     <div className="card p-6">
       <p className="font-bold text-landes-pine text-lg mb-1">Laisser un avis</p>
       <p className="text-gray-500 text-sm mb-4">Partagez votre expérience avec {companyName}</p>
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="flex items-start gap-2 bg-landes-forest/5 border border-landes-forest/15 rounded-xl p-3 mb-4">
+        <ShieldCheck className="w-4 h-4 text-landes-forest flex-shrink-0 mt-0.5" />
+        <p className="text-xs text-gray-600 leading-relaxed">
+          Pour garantir des avis authentiques, un code de vérification vous sera envoyé par email avant la publication.
+        </p>
+      </div>
+      <form onSubmit={handleRequestCode} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">Prénom *</label>
@@ -180,7 +307,7 @@ function ReviewForm({ proId, companyName }: { proId: string; companyName: string
           <input type="email" value={form.email} onChange={e => upd("email", e.target.value)}
             className={`input-field ${errors.email ? "border-red-400" : ""}`} placeholder="jean@example.fr" />
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-          <p className="text-xs text-gray-400 mt-1">Votre email ne sera pas affiché publiquement.</p>
+          <p className="text-xs text-gray-400 mt-1">Un code de vérification y sera envoyé. Votre email ne sera pas affiché publiquement.</p>
         </div>
         <div>
           <label className="label">Note *</label>
@@ -201,10 +328,10 @@ function ReviewForm({ proId, companyName }: { proId: string; companyName: string
           {errors.text && <p className="text-red-500 text-xs mt-1">{errors.text}</p>}
         </div>
         <button type="submit" disabled={loading}
-          className="btn-primary w-full flex items-center justify-center gap-2 py-3">
+          className="btn-primary w-full flex items-center justify-center gap-2 py-3 disabled:opacity-50">
           {loading
-            ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Envoi…</>
-            : "Publier mon avis"
+            ? <><Loader2 className="w-4 h-4 animate-spin" />Envoi du code…</>
+            : <><ShieldCheck className="w-4 h-4" />Recevoir mon code de vérification</>
           }
         </button>
       </form>

@@ -8,17 +8,12 @@ const CATEGORIES = [
   { slug: "batiment",      label: "Bâtiment & Travaux",         emoji: "🔨", desc: "Maçons, charpentiers, plombiers et électriciens" },
   { slug: "beaute",        label: "Beauté & Bien-être",         emoji: "💆", desc: "Instituts, spas, coiffeurs et thérapeutes" },
   { slug: "commerce",      label: "Commerce & Vente",           emoji: "🛍️", desc: "Boutiques, surf shops et commerces de proximité" },
-  { slug: "culture",       label: "Culture & Loisirs",          emoji: "🎭", desc: "Cinémas, galeries, écoles de musique et escape games" },
-  { slug: "education",     label: "Éducation & Formation",      emoji: "📚", desc: "Cours particuliers, auto-écoles et centres de formation" },
-  { slug: "hebergement",   label: "Hébergement & Tourisme",     emoji: "🏡", desc: "Gîtes, campings, locations et guides touristiques" },
-  { slug: "restauration",  label: "Hôtellerie & Restauration",  emoji: "🍽️", desc: "Restaurants, brasseries, auberges et hôtels" },
-  { slug: "immobilier",    label: "Immobilier",                  emoji: "🏠", desc: "Agences, constructeurs et gestionnaires locatifs" },
+  { slug: "agriculture",   label: "Culture & Élevage",          emoji: "🌾", desc: "Producteurs locaux, apiculteurs et paysagistes" },
+  { slug: "immobilier",    label: "Immobilier",                 emoji: "🏠", desc: "Agences, constructeurs et gestionnaires locatifs" },
   { slug: "informatique",  label: "Informatique & Numérique",   emoji: "💻", desc: "Développeurs web, graphistes et réparateurs" },
-  { slug: "medical",       label: "Médical & Paramédical",      emoji: "🏥", desc: "Kinés, infirmiers, pharmaciens et dentistes" },
-  { slug: "agriculture",   label: "Nature & Agriculture",       emoji: "🌾", desc: "Producteurs locaux, apiculteurs et paysagistes" },
   { slug: "services",      label: "Services à la personne",     emoji: "🤝", desc: "Aide à domicile, baby-sitting et jardinage" },
   { slug: "sport",         label: "Sport & Fitness",            emoji: "🏄", desc: "Surf, clubs de sport, coaches et bien-être" },
-  { slug: "transport",     label: "Transport & Logistique",     emoji: "🚚", desc: "Taxis, déménageurs, ambulances et coursiers" },
+  { slug: "transport",     label: "Transport de personnes",     emoji: "🚚", desc: "Taxis, déménageurs, ambulances et coursiers" },
 ];
 
 export default function CategoriesPage() {

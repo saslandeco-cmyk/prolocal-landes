@@ -134,105 +134,9 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
     ],
   },
 
-  // ── Culture ──────────────────────────────────────────────────
-  culture: {
-    slug: "culture",
-    category: "Culture & Loisirs",
-    emoji: "🎭",
-    title: "Culture &amp; Loisirs<br/><span class=\"text-landes-sand\">dans les Landes</span>",
-    subtitle: "Cinémas, galeries, écoles de musique, escape games et activités culturelles dans les Landes (40).",
-    seoTitle: "Activités culturelles et de loisirs dans les Landes",
-    seoText: [
-      "Les Landes proposent une vie culturelle et de loisirs riche et variée, tout au long de l'année. Cinémas art et essai, galeries d'art contemporain, écoles de musique, salles de spectacle, escape games et ateliers créatifs animent les villes et villages du département.",
-      "Notre annuaire répertorie les <strong class=\"text-landes-pine\">meilleures activités culturelles et de loisirs dans les Landes</strong> : institutions culturelles, associations sportives, prestataires de loisirs, structures d'éveil artistique et organisateurs d'événements.",
-      "<strong class=\"text-landes-pine\">Mont-de-Marsan</strong> accueille notamment des festivals de renommée nationale comme les Fêtes de la Madeleine et le festival de flamenco. <strong class=\"text-landes-pine\">Dax</strong> est connue pour ses corridas et ses festivités taurines. <strong class=\"text-landes-pine\">Hossegor</strong> attire les amateurs de surf avec les compétitions mondiales de la WSL.",
-      "Que vous cherchiez un cours de théâtre pour vos enfants, une sortie originale en famille, une soirée escape game entre amis ou un atelier peinture pour vous initier à la création artistique, notre annuaire vous guide vers les meilleures offres culturelles des Landes.",
-      "Les Landes sont également une terre de festival et de tradition. Découvrez les associations et structures culturelles qui font vivre la culture landaise au quotidien et contribuent à l'identité unique de ce territoire gascon.",
-    ],
-    ctaText: "Cinéma, galerie, école de musique, escape game ou organisateur d'événements — référencez votre structure et touchez un public plus large dans les Landes.",
-    demoPros: [
-      d("cu1","Cinéma des Landes","Culture & Loisirs","Mont-de-Marsan","40000","3 Place du Théâtre",43.8914,-0.5006,"gold","Association","Cinéma art et essai avec 3 salles. Programmation diversifiée, avant-premières et ciné-débats. Tarifs réduits pour les moins de 26 ans, scolaires et familles. Adhésion annuelle avantageuse.","François","Ciné","05 58 11 22 33","/banners/culture.jpg"),
-      d("cu2","École de Musique Dax","Culture & Loisirs","Dax","40100","8 Rue des Arts",43.7101,-1.0527,"premium","Association","Cours de guitare, piano, batterie, saxophone et chant pour enfants et adultes. Éveil musical dès 3 ans. Stages intensifs pendant les vacances. Groupes de scène et concerts de fin d'année.","Sylvie","Musique","05 58 22 33 44","/banners/culture.jpg"),
-      d("cu3","Galerie Art Côte","Culture & Loisirs","Hossegor","40150","5 Rue des Artistes",43.6640,-1.4292,"gold","SAS","Galerie d'art contemporain représentant des artistes landais et régionaux. Expositions temporaires, ventes aux enchères saisonnières et commandes d'œuvres sur mesure. Vernissages mensuels.","Hélène","Art","05 58 33 44 55","/banners/culture.jpg"),
-      d("cu4","Escape Game Landes","Culture & Loisirs","Biscarrosse","40600","10 Rue du Jeu",44.3952,-1.1637,"premium","SAS","4 salles d'escape game thématiques pour groupes de 2 à 8 personnes. Formules team building, anniversaires et séminaires. Réservation en ligne. Durée 60 minutes. Conseillé dès 12 ans.","Nicolas","Jeux","05 58 44 55 66","/banners/culture.jpg"),
-      d("cu5","Studio Danse Capbreton","Culture & Loisirs","Capbreton","40130","2 Avenue de la Gare",43.6630,-1.4431,"standard","Association","Cours de danse classique, contemporaine, hip-hop et salsa pour tous niveaux. Stages vacances. Spectacles de fin d'année. Cours adultes le soir. Essai gratuit le premier cours.","Laura","Danse","05 58 55 66 77","/banners/culture.jpg"),
-    ],
-  },
 
-  // ── Éducation ────────────────────────────────────────────────
-  education: {
-    slug: "education",
-    category: "Éducation & Formation",
-    emoji: "📚",
-    title: "Éducation &amp; Formation<br/><span class=\"text-landes-sand\">dans les Landes</span>",
-    subtitle: "Cours particuliers, auto-écoles, centres de formation et crèches dans les Landes (40).",
-    seoTitle: "Formations et services éducatifs dans les Landes",
-    seoText: [
-      "Le secteur de l'éducation et de la formation dans les Landes est riche et diversifié. Des cours particuliers aux formations professionnelles certifiantes, en passant par les auto-écoles et les établissements de garde d'enfants, de nombreux professionnels accompagnent élèves, étudiants et adultes en reconversion.",
-      "Notre annuaire référence les <strong class=\"text-landes-pine\">meilleurs établissements éducatifs et centres de formation des Landes</strong> : professeurs particuliers, auto-écoles, centres de langues, organismes de formation professionnelle, crèches et structures d'accueil petite enfance.",
-      "Le soutien scolaire est une priorité pour de nombreuses familles landaises. Des professeurs qualifiés interviennent à domicile ou en centre pour accompagner les élèves du primaire au lycée, préparer les examens (brevet, baccalauréat, BTS) et les concours des grandes écoles.",
-      "Les formations professionnelles éligibles au CPF (Compte Personnel de Formation) permettent aux adultes en activité ou en reconversion de développer de nouvelles compétences dans des secteurs porteurs. De nombreux organismes agréés opèrent depuis <strong class=\"text-landes-pine\">Mont-de-Marsan</strong> et <strong class=\"text-landes-pine\">Dax</strong>.",
-      "Que vous recherchiez un cours d'anglais pour votre enfant, une formation en informatique pour évoluer dans votre carrière, ou une auto-école réputée pour passer votre permis, notre annuaire vous guide vers les professionnels de l'éducation et de la formation dans les Landes.",
-    ],
-    ctaText: "Enseignant, formateur, auto-école ou crèche — référencez votre établissement et développez votre visibilité auprès des familles et professionnels des Landes.",
-    demoPros: [
-      d("ed1","Cours Particuliers Landes","Éducation & Formation","Mont-de-Marsan","40000","20 Rue du Savoir",43.8914,-0.5006,"gold","SAS","Centre de soutien scolaire du CP à la terminale. Cours en groupe et individuels. Préparation brevet et bac. Méthodologie et confiance en soi. Résultats garantis ou remboursés.","Catherine","Cours","05 58 11 22 33","/banners/education.jpg"),
-      d("ed2","Langues Vivantes 40","Éducation & Formation","Dax","40100","6 Rue du Lycée",43.7101,-1.0527,"premium","SARL","École de langues : anglais, espagnol, allemand, italien et FLE. Cours adultes et enfants. Préparation TOEFL, DELF, DALF. Cours intensifs pendant les vacances. Certifiée QUALIOPI.","Martine","Langues","05 58 22 33 44","/banners/education.jpg"),
-      d("ed3","Auto-École Atlantic","Éducation & Formation","Hossegor","40150","3 Rue de la Plage",43.6640,-1.4292,"gold","SARL","Permis B, A, AAC et formation continue. Moniteurs brevetés et bienveillants. Simulateur de conduite. Passage en ligne. Financement possible via CPF. Taux de réussite > 85%.","Stéphane","Conduite","05 58 33 44 55","/banners/education.jpg"),
-      d("ed4","Formation Pro Biscarrosse","Éducation & Formation","Biscarrosse","40600","8 Allée des Pins",44.3952,-1.1637,"premium","SAS","Centre de formation professionnelle certifié QUALIOPI. Formations bureautique, management, RH et comptabilité. Financement CPF, OPCO et Pôle Emploi. Présentiel et distanciel.","Olivier","Formation","05 58 44 55 66","/banners/education.jpg"),
-      d("ed5","Crèche Les Poussins","Éducation & Formation","Tartas","40400","2 Avenue de l'École",43.8335,-0.7502,"standard","Association","Micro-crèche agréée avec 10 places pour enfants de 0 à 3 ans. Éveil bienveillant, activités Montessori et repas bio cuisinés sur place. Horaires élargis 7h-19h.","Amélie","Crèche","05 58 55 66 77","/banners/education.jpg"),
-    ],
-  },
 
-  // ── Hébergement ──────────────────────────────────────────────
-  hebergement: {
-    slug: "hebergement",
-    category: "Hébergement & Tourisme",
-    emoji: "🏡",
-    title: "Hébergement &amp; Tourisme<br/><span class=\"text-landes-sand\">dans les Landes</span>",
-    subtitle: "Gîtes, chambres d'hôtes, campings, locations et activités touristiques dans les Landes (40).",
-    seoTitle: "Hébergements et activités touristiques dans les Landes",
-    seoText: [
-      "Les Landes constituent l'une des destinations touristiques les plus prisées de France. Avec ses plages de sable fin, sa forêt de pins, ses lacs et son art de vivre gascon, le département accueille chaque année des millions de visiteurs en quête de nature, de détente et de découverte.",
-      "Notre annuaire référence les meilleurs <strong class=\"text-landes-pine\">hébergements et prestataires touristiques des Landes</strong> : gîtes ruraux, chambres d'hôtes, campings, locations saisonnières, hôtels, activités de plein air et guides touristiques qui font vivre une expérience authentique du territoire.",
-      "La côte Atlantique landaise, avec ses spots de surf légendaires à <strong class=\"text-landes-pine\">Hossegor</strong> et <strong class=\"text-landes-pine\">Biscarrosse</strong>, ses forêts de pins à <strong class=\"text-landes-pine\">Parentis-en-Born</strong> et ses stations balnéaires à <strong class=\"text-landes-pine\">Mimizan</strong> et <strong class=\"text-landes-pine\">Capbreton</strong>, propose une multitude d'hébergements pour tous les budgets.",
-      "L'intérieur des terres landaises ne manque pas de charme non plus. Les fermes-auberges, gîtes équestres et chambres d'hôtes nichées en forêt permettent de déconnecter totalement et de renouer avec la nature dans un cadre préservé.",
-      "Que vous planifiiez un week-end romantique, des vacances en famille ou un séjour sportif, notre annuaire vous aide à trouver l'hébergement idéal dans les Landes et les activités touristiques qui rendront votre séjour inoubliable.",
-    ],
-    ctaText: "Gîte, chambre d'hôtes, camping ou activité touristique — référencez votre offre et soyez visible auprès des millions de touristes qui visitent les Landes chaque année.",
-    demoPros: [
-      d("he1","Domaine des Pins","Hébergement & Tourisme","Sabres","40630","Route de la Forêt",44.1500,-0.7333,"gold","SAS","5 chambres d'hôtes en forêt landaise. Petit-déjeuner maison avec produits locaux. Piscine chauffée, terrain pétanque et vélos à disposition. Table d'hôtes sur réservation.","Monique","Gîte","05 58 11 22 33","/banners/hebergement.jpg"),
-      d("he2","Surf Camp Biscarrosse","Hébergement & Tourisme","Biscarrosse","40600","5 Chemin du Surf",44.3952,-1.1637,"premium","SARL","Stage surf + hébergement tout compris. Cours 3h/jour avec moniteurs diplômés. Dortoirs et chambres privées. Ambiance internationale et conviviale. Forfaits 3, 5 et 7 nuits.","Julien","Camp","05 58 22 33 44","/banners/hebergement.jpg"),
-      d("he3","Camping Les Pins","Hébergement & Tourisme","Parentis-en-Born","40160","Allée du Lac",44.3500,-1.0660,"gold","SAS","Camping 4 étoiles au bord du lac de Parentis. Mobil-homes premium et emplacements. Piscine, toboggan, bar et restaurant. Animations enfants en juillet-août. Ouvert d'avril à octobre.","Vincent","Camp","05 58 33 44 55","/banners/hebergement.jpg"),
-      d("he4","Villa Océane Mimizan","Hébergement & Tourisme","Mimizan","40200","3 Avenue de la Côte",44.2033,-1.2297,"premium","SCI","Villa de vacances 8 personnes à 200m de la plage. Jardin clos avec piscine, garage 2 voitures, climatisation, WiFi fibre. Disponible à la semaine de mai à septembre.","Éric","Villa","05 58 44 55 66","/banners/hebergement.jpg"),
-      d("he5","Randos Landes Nature","Hébergement & Tourisme","Labouheyre","40210","Route de la Forêt",44.1500,-0.9333,"standard","EI","Guide nature agréé. Randonnées pédestres et à vélo en forêt landaise. Sorties ornithologiques, découverte des écosystèmes et bivouac encadré. Groupes de 2 à 15 personnes.","Guillaume","Guide","05 58 55 66 77","/banners/hebergement.jpg"),
-    ],
-  },
 
-  // ── Restauration ─────────────────────────────────────────────
-  restauration: {
-    slug: "restauration",
-    category: "Hôtellerie & Restauration",
-    emoji: "🍽️",
-    title: "Restauration &amp; Hôtellerie<br/><span class=\"text-landes-sand\">dans les Landes</span>",
-    subtitle: "Restaurants, brasseries, hôtels et auberges du département des Landes (40).",
-    seoTitle: "Restaurants et hôtels dans les Landes",
-    seoText: [
-      "Les Landes sont une destination gastronomique de premier plan. Foie gras, magret de canard, palombe, asperges et vins de Tursan : la table landaise célèbre le terroir du Sud-Ouest avec générosité et authenticité. Les restaurants du département rivalisent de talent pour mettre en valeur ces produits d'exception.",
-      "Notre annuaire référence les meilleurs <strong class=\"text-landes-pine\">restaurants, brasseries, auberges et hôtels des Landes</strong> : de la gastronomie étoilée aux bistrots de village en passant par les bars à tapas côtiers et les pizzerias familiales, chaque commune propose une offre de restauration de qualité.",
-      "La côte landaise propose une restauration résolument tournée vers la mer et le surf à <strong class=\"text-landes-pine\">Hossegor</strong> et <strong class=\"text-landes-pine\">Capbreton</strong>, avec des bars branchés, des restaurants de plage et des snacks ambulants. L'intérieur des terres mise davantage sur la tradition culinaire gasonne et les saveurs du terroir.",
-      "<strong class=\"text-landes-pine\">Mont-de-Marsan</strong>, préfecture des Landes, offre une scène gastronomique diversifiée avec des restaurants étoilés, des brasseries contemporaines et des marchés gourmands où les producteurs locaux présentent leurs meilleurs produits.",
-      "Que vous organisiez un dîner romantique, un déjeuner d'affaires, un repas de famille ou une simple pause gourmande lors de vos vacances, notre annuaire vous guide vers les meilleures tables des Landes.",
-    ],
-    ctaText: "Restaurant, brasserie, hôtel ou traiteur — référencez votre établissement et développez votre clientèle locale et touristique dans les Landes.",
-    demoPros: [
-      d("re1","La Table des Landes","Hôtellerie & Restauration","Mont-de-Marsan","40000","8 Place des Arts",43.8914,-0.5006,"gold","SARL","Restaurant gastronomique autour du terroir landais. Foie gras, magret, palombe et truffes. Carte des vins régionaux. Menu dégustation sur réservation. Fermeture lundi et mardi.","Christophe","Chef","05 58 11 22 33","/banners/restauration.jpg"),
-      d("re2","Le Surf Bar","Hôtellerie & Restauration","Hossegor","40150","1 Front de Mer",43.6640,-1.4292,"premium","SAS","Bar et restaurant à tapas face à l'océan. Planches apéritives, cocktails maison et vins nature. Terrasse chauffée, musique live le week-end. Ouvert 7j/7 d'avril à octobre.","Diego","Bar","05 58 22 33 44","/banners/restauration.jpg"),
-      d("re3","Auberge du Pin","Hôtellerie & Restauration","Sabres","40630","Route Forestière",44.1500,-0.7333,"gold","SARL","Auberge traditionnelle en forêt landaise. Cuisine du terroir, garbure, canard confit et grillades au feu de bois. Menus du marché. Chambres disponibles. Table d'hôtes le soir.","Gérard","Auberge","05 58 33 44 55","/banners/restauration.jpg"),
-      d("re4","Hôtel Les Dunes","Hôtellerie & Restauration","Mimizan","40200","5 Promenade de la Mer",44.2033,-1.2297,"premium","SAS","Hôtel 3 étoiles avec restaurant panoramique vue sur l'océan. 45 chambres climatisées. Piscine, spa et salle de fitness. Séminaires jusqu'à 100 personnes. Petit-déjeuner buffet inclus.","Sandra","Hôtel","05 58 44 55 66","/banners/restauration.jpg"),
-      d("re5","Glacier Artisanal","Hôtellerie & Restauration","Capbreton","40130","2 Rue du Marché",43.6630,-1.4431,"standard","EI","Glacier artisanal aux fruits frais locaux. Plus de 40 parfums dont des spécialités landaises (armagnac-pruneaux, pin maritime). Glaces vegan et sans gluten disponibles.","Laure","Glacier","05 58 55 66 77","/banners/restauration.jpg"),
-    ],
-  },
 
   // ── Immobilier ───────────────────────────────────────────────
   immobilier: {
@@ -276,43 +180,19 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
     ],
     ctaText: "Développeur, graphiste, infogérant ou formateur informatique — référencez votre activité et développez votre clientèle parmi les entreprises landaises.",
     demoPros: [
-      d("in1","Web Landes Agency","Informatique & Numérique","Mont-de-Marsan","40000","25 Rue du Digital",43.8914,-0.5006,"gold","SAS","Agence web créative : sites vitrine, e-commerce, applications mobiles. SEO, Google Ads et réseaux sociaux. Accompagnement complet de la stratégie digitale au reporting mensuel.","Alexandre","Web","05 58 11 22 33"),
-      d("in2","Répar'Info 40","Informatique & Numérique","Dax","40100","7 Rue du PC",43.7101,-1.0527,"premium","EI","Réparation PC, Mac et smartphones. Suppression de virus, récupération de données, mise à jour matériel. Intervention à domicile possible. Devis gratuit. Pièces garanties 12 mois.","Kevin","Répar","05 58 22 33 44"),
-      d("in3","Studio Créa Digital","Informatique & Numérique","Hossegor","40150","4 Rue du Studio",43.6640,-1.4292,"gold","EURL","Graphisme et identité visuelle. Création de logos, chartes graphiques, supports print et digitaux. Illustration, motion design et direction artistique. Portfolio sur demande.","Chloé","Créa","05 58 33 44 55"),
-      d("in4","Cloud Solutions 40","Informatique & Numérique","Biscarrosse","40600","2 Allée du Cloud",44.3952,-1.1637,"premium","SAS","Infogérance, hébergement et solutions cloud pour TPE/PME. Sauvegarde automatique, messagerie professionnelle et cybersécurité. Contrats de maintenance mensuels. SLA garanti.","Thomas","Cloud","05 58 44 55 66"),
-      d("in5","Formation Numérique 40","Informatique & Numérique","Capbreton","40130","9 Rue des Formations",43.6630,-1.4431,"standard","SAS","Formations bureautique, réseaux sociaux, création de site web et sécurité informatique. Présentiel et distanciel. Certifié QUALIOPI. Financement CPF et OPCO acceptés.","Isabelle","Form","05 58 55 66 77"),
+      d("in1","Web Landes Agency","Informatique & Numérique","Mont-de-Marsan","40000","25 Rue du Digital",43.8914,-0.5006,"gold","SAS","Agence web créative : sites vitrine, e-commerce, applications mobiles. SEO, Google Ads et réseaux sociaux. Accompagnement complet de la stratégie digitale au reporting mensuel.","Alexandre","Web","05 58 11 22 33","/banners/informatique.jpg"),
+      d("in2","Répar'Info 40","Informatique & Numérique","Dax","40100","7 Rue du PC",43.7101,-1.0527,"premium","EI","Réparation PC, Mac et smartphones. Suppression de virus, récupération de données, mise à jour matériel. Intervention à domicile possible. Devis gratuit. Pièces garanties 12 mois.","Kevin","Répar","05 58 22 33 44","/banners/informatique.jpg"),
+      d("in3","Studio Créa Digital","Informatique & Numérique","Hossegor","40150","4 Rue du Studio",43.6640,-1.4292,"gold","EURL","Graphisme et identité visuelle. Création de logos, chartes graphiques, supports print et digitaux. Illustration, motion design et direction artistique. Portfolio sur demande.","Chloé","Créa","05 58 33 44 55","/banners/informatique.jpg"),
+      d("in4","Cloud Solutions 40","Informatique & Numérique","Biscarrosse","40600","2 Allée du Cloud",44.3952,-1.1637,"premium","SAS","Infogérance, hébergement et solutions cloud pour TPE/PME. Sauvegarde automatique, messagerie professionnelle et cybersécurité. Contrats de maintenance mensuels. SLA garanti.","Thomas","Cloud","05 58 44 55 66","/banners/informatique.jpg"),
+      d("in5","Formation Numérique 40","Informatique & Numérique","Capbreton","40130","9 Rue des Formations",43.6630,-1.4431,"standard","SAS","Formations bureautique, réseaux sociaux, création de site web et sécurité informatique. Présentiel et distanciel. Certifié QUALIOPI. Financement CPF et OPCO acceptés.","Isabelle","Form","05 58 55 66 77","/banners/informatique.jpg"),
     ],
   },
 
-  // ── Médical ──────────────────────────────────────────────────
-  medical: {
-    slug: "medical",
-    category: "Médical & Paramédical",
-    emoji: "🏥",
-    title: "Médical &amp; Paramédical<br/><span class=\"text-landes-sand\">dans les Landes</span>",
-    subtitle: "Kinés, infirmiers, pharmaciens, dentistes et praticiens de santé dans les Landes (40).",
-    seoTitle: "Professionnels de santé et soins médicaux dans les Landes",
-    seoText: [
-      "Trouver un professionnel de santé de confiance dans les Landes est essentiel pour le bien-être des habitants et des visiteurs du département. Notre annuaire répertorie les praticiens médicaux et paramédicaux du département des Landes.",
-      "Notre annuaire référence les <strong class=\"text-landes-pine\">professionnels de santé des Landes</strong> : kinésithérapeutes, infirmiers libéraux, pharmaciens, dentistes, opticiens, podologues, orthophonistes, médecins généralistes et spécialistes qui accompagnent les patients avec professionnalisme.",
-      "<strong class=\"text-landes-pine\">Dax</strong>, première station thermale de France, concentre une offre médicale et paramédicale exceptionnelle, notamment en rhumatologie, en médecine physique et en kinésithérapie, grâce à ses nombreuses structures thermales et cliniques spécialisées.",
-      "Les communes rurales des Landes bénéficient également de l'engagement de praticiens libéraux qui maintiennent une offre de soins de proximité indispensable pour les habitants des territoires éloignés des grandes villes comme <strong class=\"text-landes-pine\">Aire-sur-l'Adour</strong>, <strong class=\"text-landes-pine\">Hagetmau</strong> ou <strong class=\"text-landes-pine\">Morcenx</strong>.",
-      "Que vous ayez besoin de soins de première nécessité, d'une rééducation post-opératoire, d'un bilan de santé ou de soins dentaires, notre annuaire vous permet de trouver rapidement un professionnel de santé disponible dans les Landes.",
-    ],
-    ctaText: "Kinésithérapeute, infirmier, pharmacien, dentiste ou médecin — référencez votre cabinet et facilitez l'accès aux soins pour les patients des Landes.",
-    demoPros: [
-      d("me1","Cabinet Kiné Dax","Médical & Paramédical","Dax","40100","5 Rue de la Santé",43.7101,-1.0527,"gold","SELARL","Kinésithérapie rééducative et sportive. Massages thérapeutiques, drainage lymphatique, rééducation post-opératoire et prise en charge des sportifs. Conventionné Sécurité Sociale.","Nathalie","Kiné","05 58 11 22 33"),
-      d("me2","Pharmacie des Pins","Médical & Paramédical","Mont-de-Marsan","40000","10 Avenue de la Pharmacie",43.8914,-0.5006,"premium","SNC","Pharmacie de proximité avec conseil personnalisé. Parapharmacie, orthopédie et délivrance de matériel médical. Téléconsultation médicale disponible. Livraison à domicile sur demande.","Philippe","Pharma","05 58 22 33 44"),
-      d("me3","Cabinet Infirmier Bisca","Médical & Paramédical","Biscarrosse","40600","3 Rue des Soins",44.3952,-1.1637,"gold","SCM","Infirmières libérales. Soins à domicile 7j/7 : pansements, injections, prises de sang, glycémie, chimiothérapie à domicile. Prise en charge SSIAD et HAD. Diabétologie et plaies chroniques.","Marie-Claire","Infirm","05 58 33 44 55"),
-      d("me4","Dentiste Soustons","Médical & Paramédical","Soustons","40140","8 Allée du Cabinet",43.7540,-1.2749,"premium","SCP","Cabinet dentaire complet. Soins courants, blanchiment, implants, prothèses et orthodontie invisaligne. Urgences le matin sans rendez-vous. Radiographie numérique et laser dentaire.","David","Dentiste","05 58 44 55 66"),
-      d("me5","Optique Hossegor","Médical & Paramédical","Hossegor","40150","2 Place du Village",43.6640,-1.4292,"standard","SAS","Opticien lunetier. Lunettes de vue et solaires, lentilles de contact. Bilan visuel gratuit sur rendez-vous. Tiers-payant toutes mutuelles. Large choix de montures et verres progressifs.","Virginie","Optique","05 58 55 66 77"),
-    ],
-  },
 
   // ── Agriculture ──────────────────────────────────────────────
   agriculture: {
     slug: "agriculture",
-    category: "Nature & Agriculture",
+    category: "Culture & Élevage",
     emoji: "🌾",
     title: "Nature &amp; Agriculture<br/><span class=\"text-landes-sand\">dans les Landes</span>",
     subtitle: "Producteurs locaux, agriculteurs, pépiniéristes et professionnels de la nature dans les Landes (40).",
@@ -326,11 +206,11 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
     ],
     ctaText: "Éleveur, maraîcher, apiculteur, paysagiste ou forestier — référencez votre exploitation et développez votre clientèle directe dans les Landes.",
     demoPros: [
-      d("ag1","Ferme du Canard","Nature & Agriculture","Hagetmau","40700","Chemin de la Ferme",43.6429,-0.5910,"gold","EARL","Élevage traditionnel de canards IGP Chalosse. Production de foie gras, magrets, confits et rillettes. Vente à la ferme et livraison. Visites de l'exploitation sur réservation.","Jean-Pierre","Canard","05 58 11 22 33"),
-      d("ag2","Pépinière des Landes","Nature & Agriculture","Sabres","40630","Route des Arbres",44.1500,-0.7333,"premium","SARL","Vente de plants, arbres, arbustes et plantes vivaces adaptés au climat landais. Service de plantation et création de jardins. Conseils d'expert et diagnostic paysager gratuit.","Bertrand","Pépinière","05 58 22 33 44"),
-      d("ag3","Apiculture Forêt 40","Nature & Agriculture","Labouheyre","40210","Chemin des Ruches",44.1500,-0.9333,"gold","EI","Apiculteur passionné. Miels de forêt landaise, de fleurs sauvages et de bruyère. Propolis, cire et produits de la ruche. Vente directe et livraison à domicile. Initiation apiculture.","Robert","Miel","05 58 33 44 55"),
-      d("ag4","Maraîchage Bio Landes","Nature & Agriculture","Aire-sur-l'Adour","40800","Chemin des Légumes",43.9265,-0.3303,"premium","EARL","Légumes de saison cultivés en agriculture biologique. AMAP et vente sur marchés locaux. Paniers hebdomadaires de 6kg. Variétés anciennes et semences paysannes. Accès à la ferme.","Lucie","Bio","05 58 44 55 66"),
-      d("ag5","Sylviculture Landes","Nature & Agriculture","Morcenx","40110","Route Forestière",44.0906,-0.6003,"standard","SARL","Gestion et exploitation de forêts de pins maritimes. Élagage, abattage, débroussaillage et reboisement. Vente de bois de chauffage et plaquettes forestières. Intervention dans tout le 40.","Patrick","Forêt","05 58 55 66 77"),
+      d("ag1","Ferme du Canard","Culture & Élevage","Hagetmau","40700","Chemin de la Ferme",43.6429,-0.5910,"gold","EARL","Élevage traditionnel de canards IGP Chalosse. Production de foie gras, magrets, confits et rillettes. Vente à la ferme et livraison. Visites de l'exploitation sur réservation.","Jean-Pierre","Canard","05 58 11 22 33","/banners/agriculture.jpg"),
+      d("ag2","Pépinière des Landes","Culture & Élevage","Sabres","40630","Route des Arbres",44.1500,-0.7333,"premium","SARL","Vente de plants, arbres, arbustes et plantes vivaces adaptés au climat landais. Service de plantation et création de jardins. Conseils d'expert et diagnostic paysager gratuit.","Bertrand","Pépinière","05 58 22 33 44","/banners/agriculture.jpg"),
+      d("ag3","Apiculture Forêt 40","Culture & Élevage","Labouheyre","40210","Chemin des Ruches",44.1500,-0.9333,"gold","EI","Apiculteur passionné. Miels de forêt landaise, de fleurs sauvages et de bruyère. Propolis, cire et produits de la ruche. Vente directe et livraison à domicile. Initiation apiculture.","Robert","Miel","05 58 33 44 55","/banners/agriculture.jpg"),
+      d("ag4","Maraîchage Bio Landes","Culture & Élevage","Aire-sur-l'Adour","40800","Chemin des Légumes",43.9265,-0.3303,"premium","EARL","Légumes de saison cultivés en agriculture biologique. AMAP et vente sur marchés locaux. Paniers hebdomadaires de 6kg. Variétés anciennes et semences paysannes. Accès à la ferme.","Lucie","Bio","05 58 44 55 66","/banners/agriculture.jpg"),
+      d("ag5","Sylviculture Landes","Culture & Élevage","Morcenx","40110","Route Forestière",44.0906,-0.6003,"standard","SARL","Gestion et exploitation de forêts de pins maritimes. Élagage, abattage, débroussaillage et reboisement. Vente de bois de chauffage et plaquettes forestières. Intervention dans tout le 40.","Patrick","Forêt","05 58 55 66 77","/banners/agriculture.jpg"),
     ],
   },
 
@@ -351,11 +231,11 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
     ],
     ctaText: "Aide à domicile, baby-sitter, jardinier, agent d'entretien ou concierge — référencez votre activité et développez votre clientèle dans les Landes.",
     demoPros: [
-      d("se1","Aide & Présence 40","Services à la personne","Mont-de-Marsan","40000","5 Rue de l'Entraide",43.8914,-0.5006,"gold","SAS","Aide à domicile pour personnes âgées et dépendantes. Aide aux gestes quotidiens, accompagnement sorties, portage de repas. Agréée et conventionnée. Crédit impôt 50%.","Sylvie","Aide","05 58 11 22 33"),
-      d("se2","Baby-Sitting Pro Dax","Services à la personne","Dax","40100","8 Avenue des Familles",43.7101,-1.0527,"premium","EI","Garde d'enfants à domicile. Nounous diplômées, titulaires du BAFA et premiers secours. Gardes régulières ou ponctuelles. Aide aux devoirs incluse. Disponible soirs et week-ends.","Élodie","Baby","05 58 22 33 44"),
-      d("se3","Jardinage Landes","Services à la personne","Biscarrosse","40600","3 Chemin du Jardin",44.3952,-1.1637,"gold","EI","Entretien de jardins et espaces verts. Tonte, taille de haies, élagage, débroussaillage, plantation et arrosage. Entretien de piscines. Devis gratuit, intervention hebdomadaire possible.","Laurent","Jardin","05 58 33 44 55"),
-      d("se4","Conciergerie Côte","Services à la personne","Hossegor","40150","4 Rue de la Conciergerie",43.6640,-1.4292,"premium","SAS","Conciergerie pour résidences secondaires et locations saisonnières. Check-in, check-out, ménage, linge, petits travaux et gestion des urgences. Disponible 7j/7 sur la côte landaise.","Valérie","Concierg","05 58 44 55 66"),
-      d("se5","Pressing Express","Services à la personne","Capbreton","40130","1 Place du Centre",43.6630,-1.4431,"standard","SAS","Pressing et blanchisserie. Nettoyage à sec, repassage, détachage et restauration textile. Livraison à domicile disponible. Traitement des vêtements délicats et cuirs.","Monique","Press","05 58 55 66 77"),
+      d("se1","Aide & Présence 40","Services à la personne","Mont-de-Marsan","40000","5 Rue de l'Entraide",43.8914,-0.5006,"gold","SAS","Aide à domicile pour personnes âgées et dépendantes. Aide aux gestes quotidiens, accompagnement sorties, portage de repas. Agréée et conventionnée. Crédit impôt 50%.","Sylvie","Aide","05 58 11 22 33","/banners/services.jpg"),
+      d("se2","Baby-Sitting Pro Dax","Services à la personne","Dax","40100","8 Avenue des Familles",43.7101,-1.0527,"premium","EI","Garde d'enfants à domicile. Nounous diplômées, titulaires du BAFA et premiers secours. Gardes régulières ou ponctuelles. Aide aux devoirs incluse. Disponible soirs et week-ends.","Élodie","Baby","05 58 22 33 44","/banners/services.jpg"),
+      d("se3","Jardinage Landes","Services à la personne","Biscarrosse","40600","3 Chemin du Jardin",44.3952,-1.1637,"gold","EI","Entretien de jardins et espaces verts. Tonte, taille de haies, élagage, débroussaillage, plantation et arrosage. Entretien de piscines. Devis gratuit, intervention hebdomadaire possible.","Laurent","Jardin","05 58 33 44 55","/banners/services.jpg"),
+      d("se4","Conciergerie Côte","Services à la personne","Hossegor","40150","4 Rue de la Conciergerie",43.6640,-1.4292,"premium","SAS","Conciergerie pour résidences secondaires et locations saisonnières. Check-in, check-out, ménage, linge, petits travaux et gestion des urgences. Disponible 7j/7 sur la côte landaise.","Valérie","Concierg","05 58 44 55 66","/banners/services.jpg"),
+      d("se5","Pressing Express","Services à la personne","Capbreton","40130","1 Place du Centre",43.6630,-1.4431,"standard","SAS","Pressing et blanchisserie. Nettoyage à sec, repassage, détachage et restauration textile. Livraison à domicile disponible. Traitement des vêtements délicats et cuirs.","Monique","Press","05 58 55 66 77","/banners/services.jpg"),
     ],
   },
 
@@ -387,7 +267,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
   // ── Transport ────────────────────────────────────────────────
   transport: {
     slug: "transport",
-    category: "Transport & Logistique",
+    category: "Transport de personnes",
     emoji: "🚚",
     title: "Transport &amp; Logistique<br/><span class=\"text-landes-sand\">dans les Landes</span>",
     subtitle: "Taxis, déménageurs, ambulances, coursiers et transporteurs dans les Landes (40).",
@@ -401,11 +281,11 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
     ],
     ctaText: "Taxi, ambulancier, déménageur, coursier ou loueur de véhicules — référencez votre activité et développez votre clientèle dans les Landes.",
     demoPros: [
-      d("tr1","Taxi Landes Express","Transport & Logistique","Mont-de-Marsan","40000","Gare de Mont-de-Marsan",43.8914,-0.5006,"gold","EI","Taxi conventionné et VTC. Disponible 24h/24 et 7j/7. Transferts gares et aéroports (Pau, Bordeaux, Biarritz). Longues distances. Prise en charge immédiate sur appel.","René","Taxi","05 58 11 22 33"),
-      d("tr2","Déménagement 40","Transport & Logistique","Dax","40100","Zone Logistique",43.7101,-1.0527,"premium","SARL","Déménagements locaux, régionaux et nationaux. Emballage professionnel, montage et démontage de meubles. Garde-meuble climatisé. Assurance tous risques incluse. Devis gratuit.","Michel","Déménag","05 58 22 33 44"),
-      d("tr3","Ambulances Côte","Transport & Logistique","Capbreton","40130","Avenue Médicale",43.6630,-1.4431,"gold","SARL","Transport sanitaire conventionné Sécurité Sociale. Ambulances et VSL pour consultations, hospitalisations et dialyses. Disponible 24h/24. Prise en charge tiers-payant.","Claude","Ambu","05 58 33 44 55"),
-      d("tr4","Livraison Express 40","Transport & Logistique","Biscarrosse","40600","Zone Commerciale",44.3952,-1.1637,"premium","SAS","Coursier et livraison express dans tout le département 40. Colis, documents, marchandises fragiles et alimentaires. Véhicules réfrigérés disponibles. Traçabilité en temps réel.","Antoine","Livr","05 58 44 55 66"),
-      d("tr5","Location Véhicules 40","Transport & Logistique","Hossegor","40150","Avenue des Pins",43.6640,-1.4292,"standard","SAS","Location de voitures, utilitaires et camping-cars. Tarifs à la journée, semaine et mois. Livraison sur votre lieu de séjour dans les Landes. Assurance incluse, jeune conducteur accepté.","Pierre","Loc","05 58 55 66 77"),
+      d("tr1","Taxi Landes Express","Transport de personnes","Mont-de-Marsan","40000","Gare de Mont-de-Marsan",43.8914,-0.5006,"gold","EI","Taxi conventionné et VTC. Disponible 24h/24 et 7j/7. Transferts gares et aéroports (Pau, Bordeaux, Biarritz). Longues distances. Prise en charge immédiate sur appel.","René","Taxi","05 58 11 22 33","/banners/transport.jpg"),
+      d("tr2","Déménagement 40","Transport de personnes","Dax","40100","Zone Logistique",43.7101,-1.0527,"premium","SARL","Déménagements locaux, régionaux et nationaux. Emballage professionnel, montage et démontage de meubles. Garde-meuble climatisé. Assurance tous risques incluse. Devis gratuit.","Michel","Déménag","05 58 22 33 44","/banners/transport.jpg"),
+      d("tr3","Ambulances Côte","Transport de personnes","Capbreton","40130","Avenue Médicale",43.6630,-1.4431,"gold","SARL","Transport sanitaire conventionné Sécurité Sociale. Ambulances et VSL pour consultations, hospitalisations et dialyses. Disponible 24h/24. Prise en charge tiers-payant.","Claude","Ambu","05 58 33 44 55","/banners/transport.jpg"),
+      d("tr4","Livraison Express 40","Transport de personnes","Biscarrosse","40600","Zone Commerciale",44.3952,-1.1637,"premium","SAS","Coursier et livraison express dans tout le département 40. Colis, documents, marchandises fragiles et alimentaires. Véhicules réfrigérés disponibles. Traçabilité en temps réel.","Antoine","Livr","05 58 44 55 66","/banners/transport.jpg"),
+      d("tr5","Location Véhicules 40","Transport de personnes","Hossegor","40150","Avenue des Pins",43.6640,-1.4292,"standard","SAS","Location de voitures, utilitaires et camping-cars. Tarifs à la journée, semaine et mois. Livraison sur votre lieu de séjour dans les Landes. Assurance incluse, jeune conducteur accepté.","Pierre","Loc","05 58 55 66 77","/banners/transport.jpg"),
     ],
   },
 };

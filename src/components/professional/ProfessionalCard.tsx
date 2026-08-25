@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Professional } from "@/types";
-import { MapPin, Phone, Globe, ArrowRight } from "lucide-react";
+import { MapPin, Phone, Mail, ArrowRight, Award } from "lucide-react";
 import StarDisplay from "@/components/ui/StarDisplay";
 import { getProRating } from "@/lib/reviewUtils";
 import { getBanner } from "@/lib/defaultBanners";
@@ -34,7 +34,9 @@ export default function ProfessionalCard({ pro: propPro }: ProfessionalCardProps
   return (
     <Link
       href={`/annuaire/${pro.id}`}
-      className="card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block group overflow-hidden"
+      className={`card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block group overflow-hidden ${
+        pro.plan === "gold" ? "ring-2 ring-amber-400/70" : ""
+      }`}
     >
       {/* Bannière + logo à cheval */}
       <div className="w-full h-32 relative">
@@ -43,6 +45,13 @@ export default function ProfessionalCard({ pro: propPro }: ProfessionalCardProps
           : <div className="w-full h-full bg-gradient-to-br from-landes-pine via-landes-forest to-landes-ocean" />
         }
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+
+        {/* Badge Recommandé (Gold) */}
+        {pro.plan === "gold" && (
+          <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-gradient-to-r from-amber-500 to-yellow-500 border border-amber-300 px-2 py-0.5 rounded-full shadow-sm">
+            <Award className="w-3 h-3" /> Recommandé
+          </span>
+        )}
 
         {/* Logo positionné à cheval sur la bannière et le contenu */}
         <div className="absolute -bottom-7 left-5">
@@ -77,24 +86,49 @@ export default function ProfessionalCard({ pro: propPro }: ProfessionalCardProps
             )}
           </div>
 
-          <p className="mt-2 text-sm text-gray-600 line-clamp-2" dangerouslySetInnerHTML={{ __html: pro.description.replace(/<[^>]*>/g, " ").trim() }} />
+          {/* Services — même style que la fiche professionnelle, sur une seule ligne */}
+          {pro.services && pro.services.length > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 overflow-hidden">
+              {pro.services.slice(0, 3).map((svc, i) => {
+                const styles = ["bg-landes-forest text-white","bg-landes-sage text-white","bg-amber-500 text-white"];
+                return <span key={i} className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap flex-shrink-0 ${styles[i % styles.length]}`}>{svc}</span>;
+              })}
+              {pro.services.length > 3 && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 whitespace-nowrap flex-shrink-0">+{pro.services.length - 3}</span>
+              )}
+            </div>
+          )}
+
+          <p className="mt-2 text-sm text-gray-600 line-clamp-2" dangerouslySetInnerHTML={{ __html: (pro.description ?? "").replace(/<[^>]*>/g, " ").trim() }} />
 
           <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
                 <div className="w-5 h-5 bg-landes-forest/10 rounded flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-3 h-3 text-landes-forest" />
                 </div>
                 <span className="text-xs font-semibold text-landes-pine truncate">{pro.city}</span>
               </div>
-              {pro.phone ? (
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="w-5 h-5 bg-landes-sage/10 rounded flex items-center justify-center flex-shrink-0">
-                    <Phone className="w-3 h-3 text-landes-sage" />
-                  </div>
-                  <span className="text-xs font-semibold text-landes-pine truncate">{pro.phone}</span>
-                </div>
-              ) : <div />}
+            </div>
+            <div className="flex gap-2 mt-2">
+              {pro.phone && (
+                <a
+                  href={`tel:${pro.phone}`}
+                  onClick={e => e.stopPropagation()}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-landes-forest text-white text-xs font-semibold py-2 rounded-lg hover:bg-landes-pine transition-colors"
+                >
+                  <Phone className="w-3.5 h-3.5" /> Appeler
+                </a>
+              )}
+              {pro.email && (
+                <a
+                  href={`mailto:${pro.email}`}
+                  onClick={e => e.stopPropagation()}
+                  className="flex-1 flex items-center justify-center gap-1.5 bg-landes-ocean/10 text-landes-ocean text-xs font-semibold py-2 rounded-lg hover:bg-landes-ocean/20 transition-colors"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Email
+                </a>
+              )}
             </div>
           </div>
         </div>

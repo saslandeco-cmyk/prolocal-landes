@@ -34,7 +34,7 @@ export default function HeroImage({ editable = false }: HeroImageProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setImage(getHeroImage());
+    getHeroImage().then(setImage);
   }, []);
 
   const handleFile = async (file: File) => {
@@ -42,7 +42,7 @@ export default function HeroImage({ editable = false }: HeroImageProps) {
     setLoading(true);
     try {
       const compressed = await compressHeroImage(file);
-      saveHeroImage(compressed);
+      await saveHeroImage(compressed);
       setImage(compressed);
     } finally {
       setLoading(false);
@@ -55,8 +55,8 @@ export default function HeroImage({ editable = false }: HeroImageProps) {
     if (file) handleFile(file);
   };
 
-  const handleRemove = () => {
-    deleteHeroImage();
+  const handleRemove = async () => {
+    await deleteHeroImage();
     setImage(null);
   };
 

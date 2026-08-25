@@ -1,22 +1,30 @@
 "use client";
 import {
   CheckCircle, AlertCircle, Loader2, ArrowRight, ArrowLeft,
-  ImagePlus, X,
+  ImagePlus, X, CreditCard, Mail,
 } from "lucide-react";
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { PLANS, CATEGORIES, type Professional } from "@/types";
-import { saveProfessional, setSession, generateId } from "@/lib/storage";
+import { useState, useRef, useMemo, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { PLANS, CATEGORIES, SUBCATEGORIES, type Professional } from "@/types";
+import { saveProfessional, setSession, generateId, getProfessionals } from "@/lib/storage";
 import { REQUIRE_VALIDATION } from "@/lib/config";
 import { lookupSiren } from "@/lib/siren";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import type { OpeningHours } from "@/types";
+import { saveWizardState, loadWizardState, clearWizardState } from "@/lib/wizardPersistence";
 
 type PlanType = "standard" | "premium" | "gold";
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | "pub" | "seo" | 3 | 4;
 
 const MAX_PHOTOS = 5;
+
+const COMPLEMENTARY_OPTIONS = [
+  { id: "pub",   label: "Encart publicitaire ciblé",      price: "50€", unit: "/mois" },
+  { id: "seo",   label: "Service de rédaction SEO",       price: "50€", unit: "(frais uniques)" },
+  { id: "crm",   label: "Gestion prospects/clients",      price: "30€", unit: "/mois" },
+] as const;
 
 async function readFileAsBase64(file: File, type: "logo" | "banner" | "photo" = "photo"): Promise<string> {
   const { compressLogo, compressBanner, compressPhoto } = await import("@/lib/imageUtils");
@@ -83,19 +91,21 @@ function PhotosUploader({
   photos: string[];
   onChange: (photos: string[]) => void;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
 
-  const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const remaining = MAX_PHOTOS - photos.length;
-    const toProcess = files.slice(0, remaining);
-    const results = await Promise.all(toProcess.map(f => readFileAsBase64(f, "photo")));
-    onChange([...photos, ...results]);
+  const handleFileAt = async (idx: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await readFileAsBase64(file, "photo");
+    const next = [...photos];
+    next[idx] = result;
+    onChange(next.filter(Boolean));
     e.target.value = "";
   };
 
-  const remove = (idx: number) => {
-    onChange(photos.filter((_, i) => i !== idx));
+  const removeAt = (idx: number) => {
+    const next = photos.filter((_, i) => i !== idx);
+    onChange(next);
   };
 
   const moveLeft = (idx: number) => {
@@ -120,52 +130,62 @@ function PhotosUploader({
         JPG, PNG recommandés.
       </p>
 
-      {photos.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mb-3">
-          {photos.map((src, idx) => (
-            <div key={idx} className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-              <img src={src} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                <div className="flex gap-1">
-                  {idx > 0 && (
-                    <button type="button" onClick={() => moveLeft(idx)}
-                      className="w-6 h-6 bg-white/80 rounded text-gray-700 text-xs flex items-center justify-center hover:bg-white font-bold">←</button>
-                  )}
-                  {idx < photos.length - 1 && (
-                    <button type="button" onClick={() => moveRight(idx)}
-                      className="w-6 h-6 bg-white/80 rounded text-gray-700 text-xs flex items-center justify-center hover:bg-white font-bold">→</button>
-                  )}
-                </div>
-                <button type="button" onClick={() => remove(idx)}
-                  className="w-6 h-6 bg-red-500 rounded text-white flex items-center justify-center hover:bg-red-600">
-                  <X className="w-3 h-3" />
-                </button>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {Array.from({ length: MAX_PHOTOS }).map((_, idx) => {
+          const src = photos[idx];
+          return (
+            <div key={idx} className="flex flex-col gap-1">
+              <div className="relative group aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                {src ? (
+                  <>
+                    <img src={src} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                      <div className="flex gap-1">
+                        {idx > 0 && (
+                          <button type="button" onClick={() => moveLeft(idx)}
+                            className="w-6 h-6 bg-white/80 rounded text-gray-700 text-xs flex items-center justify-center hover:bg-white font-bold">←</button>
+                        )}
+                        {idx < photos.length - 1 && photos[idx + 1] && (
+                          <button type="button" onClick={() => moveRight(idx)}
+                            className="w-6 h-6 bg-white/80 rounded text-gray-700 text-xs flex items-center justify-center hover:bg-white font-bold">→</button>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => removeAt(idx)}
+                        className="w-6 h-6 bg-red-500 rounded text-white flex items-center justify-center hover:bg-red-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {idx === 0 && (
+                      <div className="absolute top-1 left-1 bg-landes-forest text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-tight">
+                        1ère
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => refs.current[idx]?.click()}
+                    className="w-full h-full flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-gray-300 hover:border-landes-sage text-gray-400 hover:text-landes-forest transition-colors rounded-xl"
+                  >
+                    <ImagePlus className="w-5 h-5" />
+                    <span className="text-[10px] font-medium">Photo {idx + 1}</span>
+                  </button>
+                )}
               </div>
-              {idx === 0 && (
-                <div className="absolute top-1 left-1 bg-landes-forest text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full leading-tight">
-                  1ère
-                </div>
-              )}
+              <input
+                ref={el => { refs.current[idx] = el; }}
+                type="file"
+                accept="image/*"
+                onChange={e => handleFileAt(idx, e)}
+                className="hidden"
+              />
             </div>
-          ))}
-        </div>
-      )}
-
-      {photos.length < MAX_PHOTOS && (
-        <>
-          <button type="button" onClick={() => ref.current?.click()}
-            className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 hover:border-landes-sage text-gray-500 hover:text-landes-forest rounded-xl transition-colors text-sm w-full justify-center">
-            <ImagePlus className="w-4 h-4" />
-            {photos.length === 0
-              ? "Ajouter des photos (optionnel)"
-              : `Ajouter d'autres photos (${photos.length}/${MAX_PHOTOS})`}
-          </button>
-          <input ref={ref} type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
-        </>
-      )}
+          );
+        })}
+      </div>
 
       {photos.length === MAX_PHOTOS && (
-        <p className="text-xs text-landes-sage font-medium mt-1">
+        <p className="text-xs text-landes-sage font-medium mt-2">
           Limite de {MAX_PHOTOS} photos atteinte.
         </p>
       )}
@@ -191,25 +211,33 @@ const LANDES_CITIES = [
   "Villeneuve-de-Marsan",
 ];
 
-export default function InscriptionPage() {
+function InscriptionForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step,         setStep]         = useState<Step>(1);
   const [loading,      setLoading]      = useState(false);
   const [sirenStatus,  setSirenStatus]  = useState<"idle"|"loading"|"valid"|"invalid">("idle");
+  const [showDuplicateSirenModal, setShowDuplicateSirenModal] = useState(false);
   const [seoOpen,      setSeoOpen]      = useState(false);
   const [sirenMsg,     setSirenMsg]     = useState("");
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [pubImage, setPubImage] = useState<string>("");
+  const [seoKeywords, setSeoKeywords] = useState<string[]>(["", ""]);
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "cheque">("card");
+  const [stripePaid, setStripePaid] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(false);
   const [errors,       setErrors]       = useState<Record<string, string>>({});
   const [hours,        setHours]        = useState<OpeningHours>(DEFAULT_HOURS);
   const [photos,       setPhotos]       = useState<string[]>([]);
   const [services,     setServices]     = useState<string[]>(["", "", ""]);
 
   const [form, setForm] = useState({
-    companyName:"", siren:"", legalForm:"", category:"",
-    activityTitle:"", description:"",
-    website:"", socialLink:"", facebookLink:"", tiktokLink:"",
+    companyName:"", siren:"", legalForm:"", category:"", subcategory:"",
+    activityTitle:"", shortDescription:"", description:"",
+    website:"", socialLink:"", facebookLink:"", tiktokLink:"", whatsapp:"",
     firstName:"", lastName:"", email:"", phone:"",
-    password:"", confirmPassword:"",
+    password:"", loginEmail:"",
     address:"", city:"", postalCode:"",
     logo:"", banner:"",
   });
@@ -223,6 +251,16 @@ export default function InscriptionPage() {
   const checkSiren = async () => {
     const clean = form.siren.replace(/\s/g, "");
     if (clean.length !== 9) { setSirenStatus("invalid"); setSirenMsg("9 chiffres requis."); return; }
+
+    // Vérifie si ce SIREN est déjà inscrit sur le site
+    const existing = getProfessionals().find(p => p.siren.replace(/\s/g, "") === clean);
+    if (existing) {
+      setShowDuplicateSirenModal(true);
+      setSirenStatus("invalid");
+      setSirenMsg("Ce SIREN est déjà inscrit sur Prolocal-Landes.");
+      return;
+    }
+
     setSirenStatus("loading");
     const r = await lookupSiren(clean);
     if (r?.valid) { setSirenStatus("valid"); setSirenMsg("SIREN valide — entreprise active."); }
@@ -237,7 +275,8 @@ export default function InscriptionPage() {
     if (!form.legalForm)                                                      e.legalForm     = "Requis";
     if (!form.category)                                                       e.category      = "Requis";
     if (!form.activityTitle.trim())                                           e.activityTitle = "Requis";
-    if (form.activityTitle.trim().length > 250)                              e.activityTitle = "250 caractères maximum";
+    if (form.activityTitle.trim().length > 60)                               e.activityTitle = "60 caractères maximum";
+    if (form.shortDescription.trim().length > 150)                           e.shortDescription = "150 caractères maximum";
     if (form.description.replace(/<[^>]*>/g,"").trim().length < 500)        e.description   = "500 caractères minimum";
     if (form.description.replace(/<[^>]*>/g,"").trim().length > 2500)       e.description   = "2 500 caractères maximum";
     setErrors(e); return Object.keys(e).length === 0;
@@ -249,13 +288,133 @@ export default function InscriptionPage() {
     if (!form.lastName)                                                       e.lastName        = "Requis";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))                     e.email           = "Email invalide";
     if (!form.phone)                                                          e.phone           = "Requis";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.loginEmail))                e.loginEmail      = "Email invalide";
     if (form.password.length < 8)                                             e.password        = "8 caractères minimum";
-    if (form.password !== form.confirmPassword)                               e.confirmPassword = "Mots de passe différents";
     if (!form.address)                                                        e.address         = "Requis";
     if (!form.city)                                                           e.city            = "Requis";
     if (!/^40\d{3}$/.test(form.postalCode))                                  e.postalCode      = "Code postal Landes (40xxx)";
     setErrors(e); return Object.keys(e).length === 0;
   };
+
+  const toggleOption = (id: string) => {
+    setSelectedOptions(prev => prev.includes(id) ? prev.filter(o => o !== id) : [...prev, id]);
+  };
+
+  const needsPayment = selectedPlan !== null && (selectedPlan !== "standard" || selectedOptions.length > 0);
+
+  // Démarre la session Stripe Checkout (redirection pleine page) pour la commande complète
+  const startStripeCheckout = async () => {
+    setLoading(true);
+    try {
+      saveWizardState({
+        step, selectedPlan, selectedOptions, pubImage, seoKeywords,
+        form, hours, photos, services, paymentChoice, stripePaid,
+      });
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: selectedPlan,
+          optionIds: selectedOptions,
+          email: form.loginEmail || form.email,
+          companyName: form.companyName,
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // redirection pleine page vers Stripe Checkout
+        return;
+      }
+      alert(data.error || "Erreur lors de la création du paiement.");
+      setLoading(false);
+    } catch {
+      alert("Erreur réseau lors de la création du paiement.");
+      setLoading(false);
+    }
+  };
+
+  // Au retour de Stripe Checkout : vérifie le paiement auprès de Stripe et
+  // restaure l'état du formulaire sauvegardé avant la redirection.
+  useEffect(() => {
+    const sessionId = searchParams.get("stripe_session_id");
+    const cancelled = searchParams.get("stripe_cancelled");
+
+    if (cancelled) {
+      router.replace("/inscription");
+      return;
+    }
+    if (!sessionId) return;
+
+    setCheckingPayment(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/checkout/verify?session_id=${encodeURIComponent(sessionId)}`);
+        const data = await res.json();
+        const saved = loadWizardState<any>();
+        if (saved) {
+          setStep(saved.step ?? 3);
+          setSelectedPlan(saved.selectedPlan ?? null);
+          setSelectedOptions(saved.selectedOptions ?? []);
+          setPubImage(saved.pubImage ?? "");
+          setSeoKeywords(saved.seoKeywords ?? ["", ""]);
+          setForm((prev: any) => ({ ...prev, ...(saved.form ?? {}) }));
+          setHours(saved.hours ?? DEFAULT_HOURS);
+          setPhotos(saved.photos ?? []);
+          setServices(saved.services ?? ["", "", ""]);
+          setPaymentChoice(saved.paymentChoice ?? "card");
+
+          if (data.paid) {
+            setStripePaid(true);
+          } else {
+            alert("Le paiement n'a pas pu être confirmé auprès de Stripe. Merci de réessayer.");
+          }
+        }
+      } finally {
+        setCheckingPayment(false);
+        clearWizardState();
+        router.replace("/inscription");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Étapes dédiées aux options complémentaires sélectionnées (dans l'ordre pub → seo)
+  const optionSteps = useMemo(
+    () => (["pub", "seo"] as const).filter(id => selectedOptions.includes(id)),
+    [selectedOptions]
+  );
+
+  // Séquence complète des étapes de la commande (hors étape 1, gérée séparément)
+  // L'étape Paiement est désormais la dernière étape du parcours.
+  // Pour la formule Standard (avec options), on ne passe pas par "Complétez votre fiche".
+  const stepSequence = useMemo<Step[]>(() => {
+    const seq: Step[] = [1, 2, ...optionSteps];
+    if (selectedPlan !== "standard") seq.push(4);
+    if (needsPayment) seq.push(3);
+    return seq;
+  }, [optionSteps, needsPayment, selectedPlan]);
+
+  const goToStep = (target: Step) => setStep(target);
+
+  const goNextFromSequence = (current: Step) => {
+    const idx = stepSequence.indexOf(current);
+    if (idx === -1) return;
+    if (idx === stepSequence.length - 1) {
+      // Dernière étape de la séquence : on finalise directement
+      // (cas Standard + options, qui ne passe pas par "Complétez votre fiche")
+      submit();
+      return;
+    }
+    setStep(stepSequence[idx + 1]);
+  };
+
+  const goPrevFromSequence = (current: Step) => {
+    const idx = stepSequence.indexOf(current);
+    if (idx <= 0) return;
+    setStep(stepSequence[idx - 1]);
+  };
+
+  const isLastStepInSequence = (current: Step) => stepSequence.indexOf(current) === stepSequence.length - 1;
 
   const submit = async () => {
     if (!selectedPlan) return;
@@ -274,7 +433,9 @@ export default function InscriptionPage() {
       siren:         form.siren.replace(/\s/g,""),
       legalForm:     form.legalForm,
       category:      form.category,
+      subcategory:   form.subcategory || undefined,
       activityTitle: form.activityTitle || undefined,
+      shortDescription: form.shortDescription || undefined,
       description:   form.description,
       website:       form.website       || undefined,
       socialLink:    form.socialLink    || undefined,
@@ -282,8 +443,10 @@ export default function InscriptionPage() {
       tiktokLink:    form.tiktokLink    || undefined,
       firstName:     form.firstName,
       lastName:      form.lastName,
-      email:         form.email,
+      email:         form.loginEmail,   // email de connexion au tableau de bord
+      professionalEmail: form.email,    // email professionnel affiché sur la fiche
       phone:         form.phone,
+      whatsapp:      form.whatsapp || undefined,
       password:      form.password,
       address:       form.address,
       city:          form.city,
@@ -294,6 +457,12 @@ export default function InscriptionPage() {
       photos:  photos.length > 0  ? photos  : undefined,
       services: services.filter(s => s.trim()).length > 0 ? services.filter(s => s.trim()) : undefined,
       plan: selectedPlan,
+      complementaryOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
+      paymentMethod: needsPayment ? paymentChoice : undefined,
+      adBannerImage: selectedOptions.includes("pub") && pubImage ? pubImage : undefined,
+      seoKeywords: selectedOptions.includes("seo") && seoKeywords.filter(k => k.trim()).length > 0
+        ? seoKeywords.filter(k => k.trim())
+        : undefined,
       status: REQUIRE_VALIDATION ? "pending" : "active",
       ...(REQUIRE_VALIDATION ? {} : { validatedAt: new Date().toISOString() }),
       openingHours: hours,
@@ -319,15 +488,16 @@ export default function InscriptionPage() {
       {step === 1 && (
         <>
           <div className="card p-8 space-y-6">
-            <h2 className="text-xl font-bold text-landes-pine">Informations de l&apos;entreprise</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Informations de l&apos;entreprise</h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4">
+              {/* Ligne 1 (xl) : SIREN + bouton Vérifier / Nom entreprise / Forme juridique */}
+              <div className="xl:col-span-4">
                 <label className="label">Numéro SIREN *</label>
                 <div className="flex gap-2">
-                  <input value={form.siren} onChange={e => { upd("siren",e.target.value); setSirenStatus("idle"); }} className="input-field" placeholder="123 456 789" maxLength={11} />
+                  <input value={form.siren} onChange={e => { upd("siren",e.target.value); setSirenStatus("idle"); }} className="input-field min-w-0 flex-1" placeholder="123 456 789" maxLength={11} />
                   <button onClick={checkSiren} disabled={sirenStatus==="loading"} type="button"
-                    className="px-4 py-3 bg-landes-forest text-white rounded-lg text-sm font-medium hover:bg-landes-pine disabled:opacity-50 flex-shrink-0">
+                    className="px-4 py-3 bg-landes-forest text-white rounded-lg text-sm font-medium hover:bg-landes-pine disabled:opacity-50 flex-shrink-0 whitespace-nowrap">
                     {sirenStatus==="loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vérifier"}
                   </button>
                 </div>
@@ -336,13 +506,13 @@ export default function InscriptionPage() {
                 {errors.siren && sirenStatus!=="invalid" && <p className="text-red-500 text-xs mt-1">{errors.siren}</p>}
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="xl:col-span-4">
                 <label className="label">Nom de l&apos;entreprise *</label>
                 <input value={form.companyName} onChange={e => upd("companyName",e.target.value)} className="input-field" placeholder="Ex: Boulangerie des Pins" />
                 {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName}</p>}
               </div>
 
-              <div>
+              <div className="xl:col-span-4">
                 <label className="label">Forme juridique *</label>
                 <select value={form.legalForm} onChange={e => upd("legalForm",e.target.value)} className="input-field">
                   <option value="">Sélectionner…</option>
@@ -351,37 +521,78 @@ export default function InscriptionPage() {
                 {errors.legalForm && <p className="text-red-500 text-xs mt-1">{errors.legalForm}</p>}
               </div>
 
-              <div>
+              {/* Ligne 2 (xl) : Catégorie / Sous-catégorie (verrouillée tant que la catégorie n'est pas choisie) */}
+              <div className="xl:col-span-6">
                 <label className="label">Catégorie *</label>
-                <select value={form.category} onChange={e => upd("category",e.target.value)} className="input-field">
+                <select value={form.category} onChange={e => { upd("category",e.target.value); upd("subcategory",""); }} className="input-field">
                   <option value="">Sélectionner…</option>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
                 {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="xl:col-span-6">
+                <label className="label">Sous-catégorie <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+                <select
+                  value={form.subcategory}
+                  onChange={e => upd("subcategory",e.target.value)}
+                  disabled={!form.category || !SUBCATEGORIES[form.category]}
+                  className="input-field disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!form.category
+                      ? "Choisissez d'abord une catégorie"
+                      : SUBCATEGORIES[form.category]
+                        ? "Sélectionner…"
+                        : "Aucune sous-catégorie disponible"}
+                  </option>
+                  {form.category && SUBCATEGORIES[form.category]?.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2 xl:col-span-12">
                 <label className="label">Titre de votre activité *</label>
                 <input
                   value={form.activityTitle}
                   onChange={e => upd("activityTitle", e.target.value)}
                   className="input-field"
-                  placeholder="Ex : Boulangerie artisanale bio à Mont-de-Marsan, Dépannage informatique à domicile dans les Landes…"
-                  maxLength={250}
+                  placeholder="Ex : Boulangerie artisanale bio, Dépannage informatique à domicile…"
+                  maxLength={60}
                 />
                 <div className="flex items-center justify-between mt-1">
                   {errors.activityTitle
                     ? <p className="text-red-500 text-xs">{errors.activityTitle}</p>
                     : <p className="text-xs text-gray-400">Ce titre sera votre balise H1 — rédigez-le comme un titre optimisé pour le référencement.</p>
                   }
-                  <span className={`text-xs ml-2 flex-shrink-0 ${form.activityTitle.length > 230 ? "text-orange-500" : "text-gray-400"}`}>
-                    {form.activityTitle.length}/250
+                  <span className={`text-xs ml-2 flex-shrink-0 ${form.activityTitle.length > 50 ? "text-orange-500" : "text-gray-400"}`}>
+                    {form.activityTitle.length}/60
                   </span>
                 </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="label">Description * <span className="text-gray-400 font-normal text-xs">(500 min. · 2 500 max.)</span></label>
+              <div className="sm:col-span-2 xl:col-span-12">
+                <label className="label">Description courte <span className="text-gray-400 font-normal text-xs">(150 max.)</span></label>
+                <textarea
+                  value={form.shortDescription}
+                  onChange={e => upd("shortDescription", e.target.value)}
+                  className="input-field resize-none"
+                  rows={2}
+                  placeholder="Une phrase d'accroche affichée dans les résultats de recherche et les cartes professionnelles…"
+                  maxLength={150}
+                />
+                <div className="flex items-center justify-between mt-1">
+                  {errors.shortDescription
+                    ? <p className="text-red-500 text-xs">{errors.shortDescription}</p>
+                    : <p className="text-xs text-gray-400">Résumé court affiché sur les cartes et dans les résultats de recherche.</p>
+                  }
+                  <span className={`text-xs ml-2 flex-shrink-0 ${form.shortDescription.length > 130 ? "text-orange-500" : "text-gray-400"}`}>
+                    {form.shortDescription.length}/150
+                  </span>
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 xl:col-span-12">
+                <label className="label">Description longue * <span className="text-gray-400 font-normal text-xs">(500 min. · 2 500 max.)</span></label>
                 <div className="mb-2 border border-gray-200 rounded-xl overflow-hidden">
                   <button
                     type="button"
@@ -420,7 +631,7 @@ export default function InscriptionPage() {
                     </div>
                   )}
                 </div>
-                <RichTextEditor value={form.description} onChange={v => upd("description", v)} placeholder="Décrivez votre activité, services, savoir-faire…" />
+                <RichTextEditor value={form.description} onChange={v => upd("description", v)} placeholder="Décrivez votre activité, services, savoir-faire…" hideLink />
                 {errors.description
                   ? <p className="text-red-500 text-xs mt-1">{errors.description}</p>
                   : (() => {
@@ -438,16 +649,16 @@ export default function InscriptionPage() {
 
             {/* Logo + Bannière */}
             <div className="pt-2 border-t border-gray-100">
-              <h3 className="font-semibold text-landes-pine mb-4">Identité visuelle <span className="text-gray-400 font-normal text-sm">(optionnel)</span></h3>
+              <h3 className="text-xl font-bold text-landes-pine mb-4 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Identité visuelle <span className="text-gray-400 font-normal text-sm">(recommandé)</span></h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <ImageUploader label="Logo de l'entreprise" hint="Format carré recommandé · JPG, PNG" value={form.logo} onChange={v => upd("logo", v)} aspect="square" />
+                <ImageUploader label="Logo de l'entreprise ou votre photo" hint="Format carré recommandé (400 × 400 px) · JPG, PNG" value={form.logo} onChange={v => upd("logo", v)} aspect="square" />
                 <ImageUploader label="Bannière (image de couverture)" hint="Dimensions recommandées : 1400 × 467 px · Format paysage · JPG, PNG" value={form.banner} onChange={v => upd("banner", v)} aspect="banner" />
               </div>
             </div>
 
             {/* Coordonnées */}
             <div className="pt-2 border-t border-gray-100">
-              <h3 className="font-semibold text-landes-pine mb-4">Coordonnées &amp; Accès</h3>
+              <h3 className="text-xl font-bold text-landes-pine mb-4 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Coordonnées &amp; Accès</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Prénom *</label>
@@ -459,15 +670,22 @@ export default function InscriptionPage() {
                   <input value={form.lastName} onChange={e => upd("lastName",e.target.value)} className="input-field" placeholder="Dupont" />
                   {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>}
                 </div>
-                <div>
-                  <label className="label">Email professionnel *</label>
-                  <input type="email" value={form.email} onChange={e => upd("email",e.target.value)} className="input-field" placeholder="contact@mon-entreprise.fr" />
-                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-                </div>
-                <div>
-                  <label className="label">Téléphone *</label>
-                  <input value={form.phone} onChange={e => upd("phone",e.target.value)} className="input-field" placeholder="05 58 00 00 00" />
-                  {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="label">Email professionnel *</label>
+                    <input type="email" value={form.email} onChange={e => upd("email",e.target.value)} className="input-field" placeholder="contact@mon-entreprise.fr" />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                  </div>
+                  <div>
+                    <label className="label">Téléphone *</label>
+                    <input value={form.phone} onChange={e => upd("phone",e.target.value)} className="input-field" placeholder="05 58 00 00 00" />
+                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                  </div>
+                  <div>
+                    <label className="label">WhatsApp <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+                    <input value={form.whatsapp} onChange={e => upd("whatsapp",e.target.value)} className="input-field" placeholder="06 12 34 56 78" />
+                    <p className="text-xs text-gray-400 mt-1">Si renseigné, un bouton WhatsApp apparaîtra sur votre fiche.</p>
+                  </div>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="label">Adresse *</label>
@@ -485,15 +703,24 @@ export default function InscriptionPage() {
                   <datalist id="communes-landes">{LANDES_CITIES.map(c => <option key={c} value={c} />)}</datalist>
                   {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
                 </div>
+
+                {/* Séparateur — Informations de connexion */}
+                <div className="sm:col-span-2 pt-2">
+                  <div className="border-t border-gray-200 pt-5">
+                    <p className="text-xl font-bold text-landes-pine mb-1 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg inline-block">Informations de connexion à votre tableau de bord</p>
+                    <p className="text-xs text-gray-500 mb-4 mt-2">Ces identifiants vous permettront de vous connecter à votre espace professionnel.</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">Adresse email de connexion *</label>
+                  <input type="email" value={form.loginEmail} onChange={e => upd("loginEmail",e.target.value)} className="input-field" placeholder="votre@email.com" />
+                  {errors.loginEmail && <p className="text-red-500 text-xs mt-1">{errors.loginEmail}</p>}
+                </div>
                 <div>
                   <label className="label">Mot de passe *</label>
                   <input type="password" value={form.password} onChange={e => upd("password",e.target.value)} className="input-field" placeholder="8 caractères minimum" />
                   {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-                </div>
-                <div>
-                  <label className="label">Confirmer le mot de passe *</label>
-                  <input type="password" value={form.confirmPassword} onChange={e => upd("confirmPassword",e.target.value)} className="input-field" placeholder="Répéter…" />
-                  {errors.confirmPassword && <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>}
                 </div>
               </div>
             </div>
@@ -523,8 +750,14 @@ export default function InscriptionPage() {
                     {selectedPlan === plan.id && <CheckCircle className="w-5 h-5 text-landes-forest" />}
                   </div>
                   <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-3xl font-bold text-gray-900">{plan.price}€</span>
-                    <span className="text-gray-400 text-sm">/mois</span>
+                    {plan.price === 0 ? (
+                      <span className="text-3xl font-bold text-gray-900">Gratuit</span>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-gray-900">{plan.price}€</span>
+                        <span className="text-gray-400 text-sm">/mois</span>
+                      </>
+                    )}
                   </div>
                   <ul className="space-y-1.5">
                     {plan.features.map(f => <li key={f} className="flex items-start gap-2 text-sm text-gray-600"><span className="text-green-500">✓</span>{f}</li>)}
@@ -534,19 +767,43 @@ export default function InscriptionPage() {
             </div>
           </div>
 
+          {/* Options complémentaires */}
+          <div className="card p-8">
+            <h2 className="text-xl font-bold text-landes-pine mb-1">Options complémentaires</h2>
+            <p className="text-sm text-gray-500 mb-6">Facultatif. Vous pourrez aussi les activer plus tard depuis votre tableau de bord.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {COMPLEMENTARY_OPTIONS.map(opt => {
+                const checked = selectedOptions.includes(opt.id);
+                return (
+                  <label key={opt.id}
+                    className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${checked ? "border-landes-forest bg-landes-forest/5" : "border-gray-200 hover:border-landes-sage"}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleOption(opt.id)}
+                      className="mt-1 w-4 h-4 accent-landes-forest cursor-pointer flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold text-landes-pine text-sm">{opt.label}</p>
+                        <p className="text-sm font-bold text-gray-900 flex-shrink-0">{opt.price} <span className="text-xs font-normal text-gray-400">{opt.unit}</span></p>
+                      </div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex justify-between">
             <button type="button" onClick={() => setStep(1)} className="btn-secondary flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Retour
             </button>
             <button type="button"
-              onClick={() => {
-                if (!selectedPlan) return;
-                if (selectedPlan === "standard") { submit(); }
-                else { setStep(3); }
-              }}
+              onClick={() => goNextFromSequence(2)}
               disabled={!selectedPlan}
               className="btn-primary flex items-center gap-2 disabled:opacity-50">
-              {selectedPlan === "standard"
+              {isLastStepInSequence(2)
                 ? <>Finaliser l&apos;inscription <ArrowRight className="w-4 h-4" /></>
                 : <>Suivant <ArrowRight className="w-4 h-4" /></>
               }
@@ -556,21 +813,248 @@ export default function InscriptionPage() {
         </div>
       )}
 
-      {/* ── STEP 3 : Options selon la formule ── */}
-      {step === 3 && selectedPlan && selectedPlan !== "standard" && (
+      {/* ── STEP 3 : Paiement ── */}
+      {step === 3 && selectedPlan && needsPayment && (
+        <div className="space-y-6">
+          <div className="card p-8 space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-landes-pine mb-1">Paiement</h2>
+              <p className="text-sm text-gray-500">Récapitulatif de votre commande et choix du règlement.</p>
+            </div>
+
+            {/* Récapitulatif */}
+            <div className="border border-gray-100 rounded-xl overflow-hidden">
+              <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Récapitulatif de commande</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {selectedPlan !== "standard" && (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <p className="text-sm text-gray-700">Formule <strong className="text-landes-pine">{PLANS.find(p => p.id === selectedPlan)?.name}</strong></p>
+                    <p className="text-sm font-semibold text-gray-900">{PLANS.find(p => p.id === selectedPlan)?.price}€/mois</p>
+                  </div>
+                )}
+                {selectedOptions.map(id => {
+                  const opt = COMPLEMENTARY_OPTIONS.find(o => o.id === id);
+                  if (!opt) return null;
+                  return (
+                    <div key={id} className="flex items-center justify-between px-4 py-3">
+                      <p className="text-sm text-gray-700">{opt.label}</p>
+                      <p className="text-sm font-semibold text-gray-900">{opt.price} <span className="text-xs font-normal text-gray-400">{opt.unit}</span></p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Choix de la méthode de paiement */}
+            <div>
+              <p className="label mb-2">Méthode de paiement</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => setPaymentChoice("card")}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${paymentChoice === "card" ? "border-landes-forest bg-landes-forest/5" : "border-gray-200 hover:border-landes-sage"}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${paymentChoice === "card" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-500"}`}>
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-landes-pine text-sm">Carte bancaire</p>
+                    <p className="text-xs text-gray-500">Paiement sécurisé via Stripe</p>
+                  </div>
+                  {paymentChoice === "card" && <CheckCircle className="w-5 h-5 text-landes-forest ml-auto flex-shrink-0" />}
+                </button>
+                <button type="button" onClick={() => setPaymentChoice("cheque")}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${paymentChoice === "cheque" ? "border-landes-forest bg-landes-forest/5" : "border-gray-200 hover:border-landes-sage"}`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${paymentChoice === "cheque" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-500"}`}>
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-landes-pine text-sm">Chèque</p>
+                    <p className="text-xs text-gray-500">Envoi postal à Prolocal-Landes</p>
+                  </div>
+                  {paymentChoice === "cheque" && <CheckCircle className="w-5 h-5 text-landes-forest ml-auto flex-shrink-0" />}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Détail : Carte bancaire (Stripe Checkout, mode test) ── */}
+            {paymentChoice === "card" && (
+              <div className="border-2 border-landes-forest bg-landes-forest/5 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full">MODE TEST</span>
+                  <p className="font-semibold text-landes-pine text-sm">Paiement sécurisé via Stripe Checkout</p>
+                </div>
+
+                {checkingPayment && (
+                  <p className="text-xs text-gray-500 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Vérification du paiement en cours…</p>
+                )}
+
+                <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Abonnement mensuel</p>
+                  <ul className="space-y-1">
+                    {selectedPlan !== "standard" && (
+                      <li className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">Formule {PLANS.find(p => p.id === selectedPlan)?.name}</span>
+                        <span className="text-gray-500">{PLANS.find(p => p.id === selectedPlan)?.price}€/mois</span>
+                      </li>
+                    )}
+                    {selectedOptions.map(id => {
+                      const opt = COMPLEMENTARY_OPTIONS.find(o => o.id === id);
+                      if (!opt) return null;
+                      return (
+                        <li key={id} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-700">{opt.label}</span>
+                          <span className="text-gray-500">{opt.price} {opt.unit}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => startStripeCheckout()}
+                    disabled={loading || stripePaid}
+                    className={`w-full flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60 ${
+                      stripePaid ? "bg-green-100 text-green-700" : "bg-landes-forest text-white hover:bg-landes-pine"
+                    }`}
+                  >
+                    {stripePaid
+                      ? <><CheckCircle className="w-4 h-4" /> Paiement confirmé</>
+                      : <><CreditCard className="w-4 h-4" /> Payer via Stripe</>
+                    }
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-gray-400 pt-1">
+                  Utilisez une carte de test Stripe (ex : 4242 4242 4242 4242, date future, CVC quelconque) — aucun débit réel n&apos;est effectué en mode test. Le paiement est vérifié directement auprès de Stripe avant validation.
+                </p>
+              </div>
+            )}
+
+            {/* ── Détail : Chèque ── */}
+            {paymentChoice === "cheque" && (
+              <div className="border-2 border-landes-forest bg-landes-forest/5 rounded-xl p-4 flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-landes-forest flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-landes-pine text-sm">Paiement par chèque</p>
+                  <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                    Réglez votre commande par chèque à l&apos;ordre de <strong>Prolocal-Landes</strong>, à envoyer à l&apos;adresse suivante :
+                  </p>
+                  <p className="text-sm text-gray-700 mt-2 bg-white rounded-lg border border-gray-100 px-3 py-2">
+                    Prolocal-Landes<br />
+                    12 rue de la Forêt<br />
+                    40000 Mont-de-Marsan
+                  </p>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Merci d&apos;indiquer le nom de votre entreprise au dos du chèque. Votre fiche sera activée dès réception du règlement.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between">
+            <button type="button" onClick={() => goPrevFromSequence(3)} className="btn-secondary flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" /> Retour
+            </button>
+            <button type="button" onClick={() => goNextFromSequence(3)} disabled={loading || (paymentChoice === "card" && !stripePaid)}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50">
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</>
+                : <>Valider le paiement <ArrowRight className="w-4 h-4" /></>
+              }
+            </button>
+          </div>
+          {paymentChoice === "card" && !stripePaid && (
+            <p className="text-xs text-center text-red-400">Merci de finaliser le paiement Stripe ci-dessus avant de continuer.</p>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP pub : Encart publicitaire ciblé ── */}
+      {step === "pub" && (
+        <div className="space-y-6">
+          <div className="card p-8 space-y-5">
+            <div>
+              <h2 className="text-xl font-bold text-landes-pine mb-1 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg inline-block">Encart publicitaire ciblé</h2>
+              <p className="text-sm text-gray-500 mt-2">Téléchargez l&apos;image de votre bannière publicitaire, affichée sur la page de votre catégorie pendant 1 mois.</p>
+            </div>
+            <ImageUploader label="Bannière publicitaire" hint="Format JPG ou PNG · 1200 × 400 px recommandé" value={pubImage} onChange={setPubImage} aspect="banner" />
+            <p className="text-xs text-gray-400">Si vous ne disposez pas de votre bannière, vous pourrez la télécharger ultérieurement depuis votre tableau de bord.</p>
+          </div>
+          <div className="flex justify-between">
+            <button type="button" onClick={() => goPrevFromSequence("pub")} className="btn-secondary flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" /> Retour
+            </button>
+            <button type="button" onClick={() => goNextFromSequence("pub")} disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+              {isLastStepInSequence("pub")
+                ? (loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</> : <>Finaliser l&apos;inscription <ArrowRight className="w-4 h-4" /></>)
+                : <>Suivant <ArrowRight className="w-4 h-4" /></>
+              }
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP seo : Service de rédaction SEO ── */}
+      {step === "seo" && (
+        <div className="space-y-6">
+          <div className="card p-8 space-y-5">
+            <div>
+              <h2 className="text-xl font-bold text-landes-pine mb-1 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg inline-block">Service de rédaction SEO</h2>
+              <p className="text-sm text-gray-500 mt-2">Choisissez 2 mots-clés sur lesquels vous souhaitez optimiser le référencement de votre fiche.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {[0, 1].map(i => (
+                <div key={i}>
+                  <label className="label">Mot-clé {i + 1} *</label>
+                  <input
+                    value={seoKeywords[i] || ""}
+                    onChange={e => { const next = [...seoKeywords]; next[i] = e.target.value; setSeoKeywords(next); }}
+                    className="input-field"
+                    placeholder={i === 0 ? "Ex : plombier Dax" : "Ex : dépannage urgence"}
+                    maxLength={40}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-between">
+            <button type="button" onClick={() => goPrevFromSequence("seo")} className="btn-secondary flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" /> Retour
+            </button>
+            <button type="button"
+              onClick={() => goNextFromSequence("seo")}
+              disabled={!seoKeywords[0]?.trim() || !seoKeywords[1]?.trim() || loading}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50">
+              {isLastStepInSequence("seo")
+                ? (loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</> : <>Finaliser l&apos;inscription <ArrowRight className="w-4 h-4" /></>)
+                : <>Suivant <ArrowRight className="w-4 h-4" /></>
+              }
+            </button>
+          </div>
+          {(!seoKeywords[0]?.trim() || !seoKeywords[1]?.trim()) && (
+            <p className="text-xs text-center text-red-400">Veuillez renseigner les 2 mots-clés pour continuer.</p>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP 4 : Options selon la formule ── */}
+      {step === 4 && selectedPlan && (
         <div className="space-y-6">
           <div className="card p-8 space-y-6 border border-landes-sage/30">
             <div>
-              <h2 className="text-xl font-bold text-landes-pine mb-1 flex items-center gap-2">
-                <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full ${selectedPlan === "gold" ? "bg-yellow-100 text-yellow-700" : "bg-purple-100 text-purple-700"}`}>
-                  {selectedPlan === "gold" ? "Gold" : "Premium"}
-                </span>
+              <h2 className="text-xl font-bold text-landes-pine mb-1 flex items-center gap-2 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">
+                {selectedPlan !== "standard" && (
+                  <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full ${selectedPlan === "gold" ? "bg-yellow-100 text-yellow-700" : "bg-purple-100 text-purple-700"}`}>
+                    {selectedPlan === "gold" ? "Gold" : "Premium"}
+                  </span>
+                )}
                 Complétez votre fiche
               </h2>
               <p className="text-sm text-gray-500">Ces informations apparaîtront sur votre fiche publique. Toutes sont modifiables depuis votre tableau de bord.</p>
             </div>
 
             {/* Services (Premium : 1, Gold : 3) */}
+            {selectedPlan !== "standard" && (
             <div className="pb-5 border-b border-gray-100 space-y-3">
               <div>
                 <label className="label">
@@ -613,6 +1097,7 @@ export default function InscriptionPage() {
                 })}
               </div>
             </div>
+            )}
 
             {/* Réseaux sociaux */}
             <div className="pb-5 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -641,31 +1126,79 @@ export default function InscriptionPage() {
             {/* Horaires */}
             <div className="pb-5 border-b border-gray-100 space-y-3">
               <div>
-                <p className="font-semibold text-landes-pine mb-1">Horaires d&apos;ouverture</p>
-                <p className="text-xs text-gray-400">Définissez vos plages horaires. Modifiables depuis votre tableau de bord.</p>
+                <p className="text-xl font-bold text-landes-pine mb-1 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg inline-block">Horaires d&apos;ouverture</p>
+                <p className="text-xs text-gray-400 mt-2">Définissez vos plages horaires. Modifiables depuis votre tableau de bord.</p>
               </div>
               <OpeningHoursEditor value={hours} onChange={setHours} />
             </div>
 
             {/* Photos */}
             <div>
+              <p className="text-xl font-bold text-landes-pine mb-3 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg inline-block">Photos d&apos;entreprise</p>
               <PhotosUploader photos={photos} onChange={setPhotos} />
             </div>
           </div>
 
           <div className="flex justify-between">
-            <button type="button" onClick={() => setStep(2)} className="btn-secondary flex items-center gap-2">
+            <button type="button" onClick={() => goPrevFromSequence(4)} className="btn-secondary flex items-center gap-2">
               <ArrowLeft className="w-4 h-4" /> Retour
             </button>
-            <button type="button" onClick={() => submit()} disabled={loading}
+            <button type="button" onClick={() => goNextFromSequence(4)} disabled={loading}
               className="btn-primary flex items-center gap-2 disabled:opacity-50">
-              {loading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</>
-                : <>Finaliser l&apos;inscription <ArrowRight className="w-4 h-4" /></>
+              {isLastStepInSequence(4)
+                ? (loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</> : <>Finaliser l&apos;inscription <ArrowRight className="w-4 h-4" /></>)
+                : <>Suivant : Paiement <ArrowRight className="w-4 h-4" /></>
               }
             </button>
           </div>
         </div>
-      )}    </div>
+      )}
+
+      {/* ── Modale SIREN déjà inscrit ── */}
+      {showDuplicateSirenModal && (
+        <div
+          className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setShowDuplicateSirenModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-landes-pine">SIREN déjà inscrit</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Vous souhaitez inscrire un établissement secondaire ?{" "}
+                  <Link
+                    href="/contact"
+                    className="text-landes-forest font-semibold underline hover:text-landes-pine"
+                  >
+                    Contactez-nous !
+                  </Link>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowDuplicateSirenModal(false)}
+              className="btn-secondary w-full py-2.5 text-sm"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function InscriptionPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto px-4 py-16 text-center text-gray-400">Chargement…</div>}>
+      <InscriptionForm />
+    </Suspense>
   );
 }

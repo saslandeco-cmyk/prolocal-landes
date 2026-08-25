@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, useMemo, Suspense, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { MapPin, List, Map as MapIcon } from "lucide-react";
 import { getProfessionalsWithImages } from "@/lib/storage";
@@ -14,11 +14,25 @@ function AnnuaireContent() {
   const searchParams = useSearchParams();
   const [pros, setPros] = useState<Professional[]>([]);
   const [filtered, setFiltered] = useState<Professional[]>([]);
-  const [search]  = useState(searchParams.get("q") || "");
-  const [category] = useState(searchParams.get("category") || "");
-  const [city]    = useState(searchParams.get("city") || "");
+
+  // Dérivés réactifs des search params — se recalculent à chaque changement d'URL
+  const search    = useMemo(() => searchParams.get("q")        || "", [searchParams]);
+  const category  = useMemo(() => searchParams.get("category") || "", [searchParams]);
+  const city      = useMemo(() => searchParams.get("city")     || "", [searchParams]);
+  const geoLat    = useMemo(() => parseFloat(searchParams.get("lat") || "") || null, [searchParams]);
+  const geoLng    = useMemo(() => parseFloat(searchParams.get("lng") || "") || null, [searchParams]);
+  const geoRadius = useMemo(() => parseInt(searchParams.get("radius") || "25", 10), [searchParams]);
   const [view, setView] = useState<"list" | "map">("list");
   const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  // Haversine distance en km
+  const haversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
 
   useEffect(() => {
     getProfessionalsWithImages().then(all => {
@@ -28,34 +42,57 @@ function AnnuaireContent() {
     });
   }, []);
 
+  // Scroll vers les résultats à chaque arrivée sur la page (recherche depuis l'accueil ou une autre page)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      document.getElementById("resultats")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => clearTimeout(t);
+  }, []);
+
   useEffect(() => {
     let results = pros;
     if (search) {
       const q = search.toLowerCase();
       results = results.filter(p => {
-        const desc = p.description.replace(/<[^>]*>/g, " ").toLowerCase();
+        const desc = (p.description ?? "").replace(/<[^>]*>/g, " ").toLowerCase();
         const svcs = (p.services || []).join(" ").toLowerCase();
         return (
-          p.companyName.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q) ||
+          (p.companyName ?? "").toLowerCase().includes(q) ||
+          (p.category ?? "").toLowerCase().includes(q) ||
+          (p.subcategory ?? "").toLowerCase().includes(q) ||
           desc.includes(q) ||
-          p.city.toLowerCase().includes(q) ||
+          (p.city ?? "").toLowerCase().includes(q) ||
           svcs.includes(q) ||
-          (p.job || "").toLowerCase().includes(q)
+          (p.activityTitle || "").toLowerCase().includes(q)
         );
       });
     }
     if (category) results = results.filter(p => p.category === category);
-    if (city) {
-      const c = city.toLowerCase();
-      results = results.filter(p =>
-        p.city.toLowerCase().includes(c) || p.postalCode.includes(c)
-      );
+    if (geoLat !== null && geoLng !== null) {
+      // Filtre par rayon géographique
+      results = results.filter(p => {
+        if (!p.lat || !p.lng) return false;
+        return haversine(geoLat, geoLng, p.lat, p.lng) <= geoRadius;
+      });
+      // Tri par distance croissante
+      results.sort((a, b) => {
+        const dA = haversine(geoLat, geoLng, a.lat!, a.lng!);
+        const dB = haversine(geoLat, geoLng, b.lat!, b.lng!);
+        return dA - dB;
+      });
+    } else {
+      if (city) {
+        const c = city.toLowerCase();
+        results = results.filter(p =>
+          (p.city ?? "").toLowerCase().includes(c) || (p.postalCode ?? "").includes(c)
+        );
+      }
+      const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
+      results.sort((a, b) => order[a.plan] - order[b.plan]);
     }
-    const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
-    results.sort((a, b) => order[a.plan] - order[b.plan]);
     setFiltered(results);
-  }, [search, category, city, pros]);
+  }, [search, category, city, geoLat, geoLng, geoRadius, pros]);
 
   const handleSelectPro = useCallback((id: string) => {
     setHighlightId(id);
@@ -77,7 +114,9 @@ function AnnuaireContent() {
           <div className="flex items-center justify-between mb-5">
             <div>
               <h1 className="text-2xl font-bold text-white">Annuaire des professionnels</h1>
-              <p className="text-sm text-gray-300">Landes (40) — <span className="font-medium text-landes-sand">{filtered.length} résultat{filtered.length > 1 ? "s" : ""}</span></p>
+              <p className="text-sm text-gray-300">Landes (40) — <span className="font-medium text-landes-sand">{filtered.length} résultat{filtered.length > 1 ? "s" : ""}</span>
+                {geoLat !== null && <span className="ml-2 text-xs bg-landes-forest/30 text-landes-sand px-2 py-0.5 rounded-full">📍 Autour de moi · {geoRadius} km</span>}
+              </p>
             </div>
             {/* View toggle */}
             <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
@@ -97,12 +136,12 @@ function AnnuaireContent() {
           </div>
 
           {/* Same search form as hero */}
-          <SearchBar initialQuery={search} initialLocation={city} compact />
+          <SearchBar initialQuery={search} initialLocation={geoLat ? "📍 Ma position" : city} compact />
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+      <div id="resultats" className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 scroll-mt-24">
         {filtered.length === 0 ? (
           <div className="text-center py-20">
             <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />

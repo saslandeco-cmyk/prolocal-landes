@@ -8,11 +8,12 @@ export const DEFAULT_BANNERS: Record<string, string> = {
   "Bâtiment & Travaux":           "/banners/batiment.jpg",
   "Beauté & Bien-être":           "/banners/beaute.jpg",
   "Commerce & Vente":             "/banners/commerce.jpg",
-  "Culture & Loisirs":            "/banners/culture.jpg",
-  "Éducation & Formation":        "/banners/education.jpg",
-  "Hébergement & Tourisme":       "/banners/hebergement.jpg",
-  "Hôtellerie & Restauration":    "/banners/restauration.jpg",
+  "Culture & Élevage":            "/banners/agriculture.jpg",
   "Immobilier":                   "/banners/immobilier.jpg",
+  "Informatique & Numérique":     "/banners/informatique.jpg",
+  "Services à la personne":       "/banners/services.jpg",
+  "Sport & Fitness":              "/banners/sport.jpg",
+  "Transport de personnes":       "/banners/transport.jpg",
 };
 
 /**

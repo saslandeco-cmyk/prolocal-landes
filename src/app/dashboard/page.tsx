@@ -4,13 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   LogOut, Edit3, CheckCircle, Clock, Save, Loader2, Eye, EyeOff,
   Calendar, Trash2, CalendarCheck, CalendarX, Settings, Ban, Plus, X,
-  ImagePlus, Images, Star, Shield,
+  ImagePlus, Images, Star, Shield, Info,
 } from "lucide-react";
 import {
   getSession, clearSession, getProfessionalById, saveProfessional, rehydrateAsync,
   generateId, getReviewsByPro, saveReview, deleteProfessional,
 } from "@/lib/storage";
-import { Professional, CATEGORIES, LANDES_CITIES, PLANS, OpeningHours, Review } from "@/types";
+import { Professional, CATEGORIES, SUBCATEGORIES, LANDES_CITIES, PLANS, OpeningHours, Review } from "@/types";
 import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
@@ -448,7 +448,7 @@ function DashboardContent() {
 
             {/* ── Identification ── */}
             <div className="sm:col-span-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-landes-sage mb-4 pb-2 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-4">
                 Identification
               </h3>
             </div>
@@ -474,15 +474,27 @@ function DashboardContent() {
             <div>
               <label className="label">Catégorie</label>
               {editing
-                ? <select value={form.category || ""} onChange={e => update("category", e.target.value)} className="input-field">
+                ? <select value={form.category || ""} onChange={e => { update("category", e.target.value); update("subcategory", ""); }} className="input-field">
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 : <p className="text-gray-900 font-medium">{pro.category}</p>}
             </div>
 
+            {SUBCATEGORIES[(editing ? form.category : pro.category) as string] && (
+              <div>
+                <label className="label">Sous-catégorie <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+                {editing
+                  ? <select value={(form.subcategory as string) || ""} onChange={e => update("subcategory", e.target.value)} className="input-field">
+                      <option value="">Sélectionner…</option>
+                      {SUBCATEGORIES[form.category as string].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  : <p className="text-gray-900 font-medium">{(pro as any).subcategory || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
+              </div>
+            )}
+
             {/* ── Description ── */}
             <div className="sm:col-span-2 pt-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-landes-sage mb-4 pb-2 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-4">
                 Présentation de l&apos;activité
               </h3>
             </div>
@@ -491,6 +503,32 @@ function DashboardContent() {
               {editing
                 ? <input value={(form.activityTitle as string) || ""} onChange={e => update("activityTitle", e.target.value)} className="input-field" placeholder="Ex : Boulangerie artisanale bio à Mont-de-Marsan, Dépannage informatique à domicile dans les Landes…" maxLength={250} />
                 : <p className="text-gray-900 font-medium">{(pro as any).activityTitle || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label flex items-center gap-1.5">
+                Description courte
+                <span className="text-gray-400 font-normal text-xs">(150 max.)</span>
+                <span className="group relative inline-flex">
+                  <Info className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+                  <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 rounded-lg bg-gray-800 text-white text-xs px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-center">
+                    La description courte est utilisée pour le référencement naturel de votre fiche professionnelle sur les moteurs de recherche. Il faut éviter de la modifier.
+                    <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+                  </span>
+                </span>
+              </label>
+              {editing
+                ? <>
+                    <textarea
+                      value={(form.shortDescription as string) || ""}
+                      onChange={e => update("shortDescription", e.target.value)}
+                      className="input-field resize-none"
+                      rows={2}
+                      maxLength={150}
+                      placeholder="Une phrase d'accroche affichée dans les résultats de recherche et les cartes professionnelles…"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">{((form.shortDescription as string) || "").length}/150</p>
+                  </>
+                : <p className="text-gray-900">{(pro as any).shortDescription || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
             </div>
             <div className="sm:col-span-2">
               <label className="label">Description <span className="text-gray-400 font-normal text-xs">(500 min. · 2 500 max.)</span></label>
@@ -550,7 +588,7 @@ function DashboardContent() {
 
             {/* ── Coordonnées ── */}
             <div className="sm:col-span-2 pt-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-landes-sage mb-4 pb-2 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-4">
                 Coordonnées &amp; Contact
               </h3>
             </div>
@@ -565,6 +603,12 @@ function DashboardContent() {
               {editing
                 ? <input value={form.phone || ""} onChange={e => update("phone", e.target.value)} className="input-field" />
                 : <p className="text-gray-900 font-medium">{pro.phone}</p>}
+            </div>
+            <div>
+              <label className="label">WhatsApp <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+              {editing
+                ? <input value={(form.whatsapp as string) || ""} onChange={e => update("whatsapp", e.target.value)} className="input-field" placeholder="06 12 34 56 78" />
+                : <p className="text-gray-900 font-medium">{(pro as any).whatsapp || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
             </div>
             <div>
               <label className="label">Email (identifiant)</label>
@@ -595,7 +639,7 @@ function DashboardContent() {
             {/* Services — Premium et Gold uniquement */}
             {pro.plan !== "standard" && (
             <div className="sm:col-span-2 pt-2">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-landes-sage mb-4 pb-2 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-4">
                 Services mis en avant
               </h3>
             </div>
@@ -792,7 +836,7 @@ function DashboardContent() {
       {activeTab === "horaires" && (
         <div className="card p-8 space-y-6">
           <div>
-            <h2 className="text-lg font-bold text-landes-pine mb-1">Horaires d&apos;ouverture</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-1">Horaires d&apos;ouverture</h2>
             <p className="text-sm text-gray-500">Ces horaires apparaîtront sur votre fiche publique avec un indicateur &quot;Ouvert / Fermé&quot; en temps réel.</p>
           </div>
 
@@ -812,7 +856,7 @@ function DashboardContent() {
         <div className="space-y-4">
           <div className="card p-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-bold text-landes-pine">Avis clients</h2>
+              <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Avis clients</h2>
               <span className="text-sm text-gray-400">{proReviews.length} avis au total</span>
             </div>
             <p className="text-sm text-gray-500">
@@ -832,7 +876,14 @@ function DashboardContent() {
                       {review.firstName[0]}{review.lastName[0]}
                     </div>
                     <div>
-                      <p className="font-semibold text-landes-pine text-sm">{review.firstName} {review.lastName}</p>
+                      <p className="font-semibold text-landes-pine text-sm flex items-center gap-1.5">
+                        {review.firstName} {review.lastName}
+                        {review.verified && (
+                          <span title="Identité vérifiée par email" className="inline-flex items-center gap-0.5 text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full leading-none">
+                            <Shield className="w-3 h-3" /> Vérifié
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs text-gray-400">{new Date(review.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
                     </div>
                   </div>
@@ -923,11 +974,11 @@ function DashboardContent() {
         <div className="space-y-6">
           {/* Plans */}
           <div className="card p-8">
-            <h2 className="text-lg font-bold text-landes-pine mb-1">Ma formule</h2>
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-1">Ma formule</h2>
             <p className="text-sm text-gray-500 mb-6">Changez de formule à tout moment. Le changement est immédiat.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
               {PLANS.map(plan => (
-                <div key={plan.id} className={`card p-6 border-2 relative transition-all ${
+                <div key={plan.id} className={`card p-6 border-2 relative transition-all flex flex-col h-full ${
                   pro.plan === plan.id
                     ? "border-landes-forest bg-landes-forest/5 shadow"
                     : "border-gray-100 hover:border-landes-sage"
@@ -939,8 +990,14 @@ function DashboardContent() {
                   )}
                   <h3 className={`font-bold text-lg mb-1 ${plan.color}`}>{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mb-4">
-                    <span className="text-3xl font-bold text-gray-900">{plan.price}€</span>
-                    <span className="text-gray-400 text-sm">/mois</span>
+                    {plan.price === 0 ? (
+                      <span className="text-3xl font-bold text-gray-900">Gratuit</span>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-gray-900">{plan.price}€</span>
+                        <span className="text-gray-400 text-sm">/mois</span>
+                      </>
+                    )}
                   </div>
                   <ul className="space-y-1.5 mb-5">
                     {plan.features.map(f => (
@@ -960,7 +1017,7 @@ function DashboardContent() {
                         setPro(updated);
                         setPlanChanging(false);
                       }}
-                      className="w-full py-2.5 rounded-xl border-2 border-landes-forest text-landes-forest hover:bg-landes-forest hover:text-white transition-all text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full py-2.5 rounded-xl border-2 border-landes-forest text-landes-forest hover:bg-landes-forest hover:text-white transition-all text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mt-auto"
                     >
                       {planChanging
                         ? <><Loader2 className="w-4 h-4 animate-spin" /> Changement…</>

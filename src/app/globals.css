@@ -42,7 +42,7 @@
     @apply block text-sm font-semibold text-gray-800 mb-1.5;
   }
   .section-title {
-    @apply text-3xl font-bold text-landes-pine mb-4;
+    @apply text-2xl sm:text-3xl font-bold text-landes-pine mb-4;
   }
   .badge-standard {
     @apply bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full;
@@ -182,4 +182,13 @@
 .leaflet-image-layer,
 .leaflet-layer {
   position: absolute;
+}
+
+/* Masque la scrollbar tout en gardant le scroll fonctionnel (onglets mobiles, etc.) */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
