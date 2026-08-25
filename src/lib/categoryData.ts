@@ -190,7 +190,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
 
 
   // ── Culture ──────────────────────────────────────────────
-  agriculture: {
+    culture: {
     slug: "culture",
     category: "Culture & Élevage",
     emoji: "🌾",
