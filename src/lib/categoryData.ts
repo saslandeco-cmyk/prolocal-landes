@@ -189,12 +189,12 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
   },
 
 
-  // ── Culture ──────────────────────────────────────────────
-    culture: {
-    slug: "culture",
+  // ── Agriculture ──────────────────────────────────────────────
+  agriculture: {
+    slug: "agriculture",
     category: "Culture & Élevage",
     emoji: "🌾",
-    title: "Culture &amp; Elevage<br/><span class=\"text-landes-sand\">dans les Landes</span>",
+    title: "Nature &amp; Agriculture<br/><span class=\"text-landes-sand\">dans les Landes</span>",
     subtitle: "Producteurs locaux, agriculteurs, pépiniéristes et professionnels de la nature dans les Landes (40).",
     seoTitle: "Producteurs locaux et agriculture dans les Landes",
     seoText: [
