@@ -93,6 +93,9 @@ export async function POST(req: NextRequest) {
       mode: hasRecurring ? "subscription" : "payment",
       line_items: lineItems as any,
       customer_email: email || undefined,
+      // Force la création d'un client Stripe même en paiement unique (mode "payment"),
+      // afin de pouvoir ouvrir le Portail client par la suite.
+      customer_creation: hasRecurring ? undefined : "always",
       success_url: `${origin}/inscription?stripe_session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/inscription?stripe_cancelled=1`,
       metadata: {

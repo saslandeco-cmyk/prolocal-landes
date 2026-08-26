@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   LogOut, Edit3, CheckCircle, Clock, Save, Loader2, Eye, EyeOff,
   Calendar, Trash2, CalendarCheck, CalendarX, Settings, Ban, Plus, X,
-  ImagePlus, Images, Star, Shield, Info,
+  ImagePlus, Images, Star, Shield, Info, CreditCard,
 } from "lucide-react";
 import {
   getSession, clearSession, getProfessionalById, saveProfessional, rehydrateAsync,
@@ -15,6 +15,7 @@ import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import RichTextEditor from "@/components/ui/RichTextEditor";
+import SubscriptionManager from "@/components/professional/SubscriptionManager";
 import { getBanner } from "@/lib/defaultBanners";
 import { REQUIRE_VALIDATION } from "@/lib/config";
 import StatsTab from "@/app/dashboard/StatsTab";
@@ -975,7 +976,12 @@ function DashboardContent() {
           {/* Plans */}
           <div className="card p-8">
             <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-1">Ma formule</h2>
-            <p className="text-sm text-gray-500 mb-6">Changez de formule à tout moment. Le changement est immédiat.</p>
+            <p className="text-sm text-gray-500 mb-4">Changez de formule à tout moment. Le changement est immédiat.</p>
+
+            {(pro as any).stripeCustomerId && (
+              <SubscriptionManager customerId={(pro as any).stripeCustomerId} />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
               {PLANS.map(plan => (
                 <div key={plan.id} className={`card p-6 border-2 relative transition-all flex flex-col h-full ${

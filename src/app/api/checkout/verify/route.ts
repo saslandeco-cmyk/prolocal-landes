@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
       planId: session.metadata?.planId || null,
       optionIds: session.metadata?.optionIds ? session.metadata.optionIds.split(",").filter(Boolean) : [],
       amountTotal: session.amount_total,
+      customerId: typeof session.customer === "string" ? session.customer : session.customer?.id || null,
     });
   } catch (err: any) {
     console.error("[api/checkout/verify] Erreur:", err);

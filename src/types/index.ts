@@ -24,6 +24,8 @@ export interface Professional {
   whatsapp?: string;
   complementaryOptions?: string[];
   paymentMethod?: "cheque" | "card";
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   adBannerImage?: string;
   seoKeywords?: string[];
   address: string;

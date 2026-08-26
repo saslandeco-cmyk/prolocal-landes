@@ -4,7 +4,7 @@ import {
   ImagePlus, X, CreditCard, Mail,
 } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PLANS, CATEGORIES, SUBCATEGORIES, type Professional } from "@/types";
 import { saveProfessional, setSession, generateId, getProfessionals } from "@/lib/storage";
@@ -13,7 +13,7 @@ import { lookupSiren } from "@/lib/siren";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import type { OpeningHours } from "@/types";
-import { saveWizardState, loadWizardState, clearWizardState } from "@/lib/wizardPersistence";
+import StripePaymentForm from "@/components/professional/StripePaymentForm";
 
 type PlanType = "standard" | "premium" | "gold";
 type Step = 1 | 2 | "pub" | "seo" | 3 | 4;
@@ -213,7 +213,6 @@ const LANDES_CITIES = [
 
 function InscriptionForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [step,         setStep]         = useState<Step>(1);
   const [loading,      setLoading]      = useState(false);
   const [sirenStatus,  setSirenStatus]  = useState<"idle"|"loading"|"valid"|"invalid">("idle");
@@ -226,7 +225,11 @@ function InscriptionForm() {
   const [seoKeywords, setSeoKeywords] = useState<string[]>(["", ""]);
   const [paymentChoice, setPaymentChoice] = useState<"card" | "cheque">("card");
   const [stripePaid, setStripePaid] = useState(false);
-  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
+  const [stripeSubscriptionId, setStripeSubscriptionId] = useState<string | null>(null);
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+  const [stripeIntentMode, setStripeIntentMode] = useState<"payment" | "subscription">("subscription");
+  const [preparingPayment, setPreparingPayment] = useState(false);
   const [errors,       setErrors]       = useState<Record<string, string>>({});
   const [hours,        setHours]        = useState<OpeningHours>(DEFAULT_HOURS);
   const [photos,       setPhotos]       = useState<string[]>([]);
@@ -302,15 +305,13 @@ function InscriptionForm() {
 
   const needsPayment = selectedPlan !== null && (selectedPlan !== "standard" || selectedOptions.length > 0);
 
-  // Démarre la session Stripe Checkout (redirection pleine page) pour la commande complète
-  const startStripeCheckout = async () => {
-    setLoading(true);
+  // Prépare le paiement embarqué : crée l'abonnement (ou le PaymentIntent pour un
+  // frais unique seul) côté serveur et récupère le client_secret pour Stripe Elements.
+  // Le client reste sur la page — aucune redirection.
+  const preparePayment = async () => {
+    setPreparingPayment(true);
     try {
-      saveWizardState({
-        step, selectedPlan, selectedOptions, pubImage, seoKeywords,
-        form, hours, photos, services, paymentChoice, stripePaid,
-      });
-      const res = await fetch("/api/checkout", {
+      const res = await fetch("/api/subscriptions/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -321,62 +322,35 @@ function InscriptionForm() {
         }),
       });
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url; // redirection pleine page vers Stripe Checkout
-        return;
+      if (data.clientSecret) {
+        setStripeClientSecret(data.clientSecret);
+        setStripeCustomerId(data.customerId);
+        setStripeSubscriptionId(data.subscriptionId);
+        setStripeIntentMode(data.mode === "payment" ? "payment" : "subscription");
+      } else {
+        alert(data.error || "Erreur lors de la préparation du paiement.");
       }
-      alert(data.error || "Erreur lors de la création du paiement.");
-      setLoading(false);
     } catch {
-      alert("Erreur réseau lors de la création du paiement.");
-      setLoading(false);
+      alert("Erreur réseau lors de la préparation du paiement.");
+    } finally {
+      setPreparingPayment(false);
     }
   };
 
-  // Au retour de Stripe Checkout : vérifie le paiement auprès de Stripe et
-  // restaure l'état du formulaire sauvegardé avant la redirection.
+  // Déclenché quand le formulaire Stripe Elements confirme le paiement avec succès
+  const handleStripeSuccess = () => {
+    setStripePaid(true);
+    goNextFromSequence(3);
+  };
+
+  // Prépare automatiquement le paiement embarqué dès l'arrivée sur l'étape
+  // paiement avec le choix "carte", tant qu'il n'est pas déjà prêt/payé.
   useEffect(() => {
-    const sessionId = searchParams.get("stripe_session_id");
-    const cancelled = searchParams.get("stripe_cancelled");
-
-    if (cancelled) {
-      router.replace("/inscription");
-      return;
+    if (step === 3 && paymentChoice === "card" && needsPayment && !stripeClientSecret && !stripePaid && !preparingPayment) {
+      preparePayment();
     }
-    if (!sessionId) return;
-
-    setCheckingPayment(true);
-    (async () => {
-      try {
-        const res = await fetch(`/api/checkout/verify?session_id=${encodeURIComponent(sessionId)}`);
-        const data = await res.json();
-        const saved = loadWizardState<any>();
-        if (saved) {
-          setStep(saved.step ?? 3);
-          setSelectedPlan(saved.selectedPlan ?? null);
-          setSelectedOptions(saved.selectedOptions ?? []);
-          setPubImage(saved.pubImage ?? "");
-          setSeoKeywords(saved.seoKeywords ?? ["", ""]);
-          setForm((prev: any) => ({ ...prev, ...(saved.form ?? {}) }));
-          setHours(saved.hours ?? DEFAULT_HOURS);
-          setPhotos(saved.photos ?? []);
-          setServices(saved.services ?? ["", "", ""]);
-          setPaymentChoice(saved.paymentChoice ?? "card");
-
-          if (data.paid) {
-            setStripePaid(true);
-          } else {
-            alert("Le paiement n'a pas pu être confirmé auprès de Stripe. Merci de réessayer.");
-          }
-        }
-      } finally {
-        setCheckingPayment(false);
-        clearWizardState();
-        router.replace("/inscription");
-      }
-    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [step, paymentChoice, needsPayment, stripeClientSecret, stripePaid]);
 
   // Étapes dédiées aux options complémentaires sélectionnées (dans l'ordre pub → seo)
   const optionSteps = useMemo(
@@ -459,6 +433,8 @@ function InscriptionForm() {
       plan: selectedPlan,
       complementaryOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
       paymentMethod: needsPayment ? paymentChoice : undefined,
+      stripeCustomerId: stripeCustomerId || undefined,
+      stripeSubscriptionId: stripeSubscriptionId || undefined,
       adBannerImage: selectedOptions.includes("pub") && pubImage ? pubImage : undefined,
       seoKeywords: selectedOptions.includes("seo") && seoKeywords.filter(k => k.trim()).length > 0
         ? seoKeywords.filter(k => k.trim())
@@ -876,20 +852,16 @@ function InscriptionForm() {
               </div>
             </div>
 
-            {/* ── Détail : Carte bancaire (Stripe Checkout, mode test) ── */}
+            {/* ── Détail : Carte bancaire (Stripe Elements, embarqué, mode test) ── */}
             {paymentChoice === "card" && (
               <div className="border-2 border-landes-forest bg-landes-forest/5 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-amber-500 px-2 py-0.5 rounded-full">MODE TEST</span>
-                  <p className="font-semibold text-landes-pine text-sm">Paiement sécurisé via Stripe Checkout</p>
+                  <p className="font-semibold text-landes-pine text-sm">Paiement par carte, directement sur le site</p>
                 </div>
 
-                {checkingPayment && (
-                  <p className="text-xs text-gray-500 flex items-center gap-1.5"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Vérification du paiement en cours…</p>
-                )}
-
                 <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Abonnement mensuel</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Récapitulatif</p>
                   <ul className="space-y-1">
                     {selectedPlan !== "standard" && (
                       <li className="flex items-center justify-between text-sm">
@@ -908,23 +880,28 @@ function InscriptionForm() {
                       );
                     })}
                   </ul>
-                  <button
-                    type="button"
-                    onClick={() => startStripeCheckout()}
-                    disabled={loading || stripePaid}
-                    className={`w-full flex items-center justify-center gap-2 text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-60 ${
-                      stripePaid ? "bg-green-100 text-green-700" : "bg-landes-forest text-white hover:bg-landes-pine"
-                    }`}
-                  >
-                    {stripePaid
-                      ? <><CheckCircle className="w-4 h-4" /> Paiement confirmé</>
-                      : <><CreditCard className="w-4 h-4" /> Payer via Stripe</>
-                    }
-                  </button>
                 </div>
 
+                {stripePaid ? (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-3">
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <p className="text-sm text-green-700 font-medium">Paiement confirmé — finalisation en cours…</p>
+                  </div>
+                ) : preparingPayment || !stripeClientSecret ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-4 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Préparation du paiement sécurisé…
+                  </div>
+                ) : (
+                  <StripePaymentForm
+                    clientSecret={stripeClientSecret}
+                    intentType={stripeIntentMode === "payment" ? "payment" : "payment"}
+                    submitLabel="Payer et activer mon abonnement"
+                    onSuccess={handleStripeSuccess}
+                  />
+                )}
+
                 <p className="text-[11px] text-gray-400 pt-1">
-                  Utilisez une carte de test Stripe (ex : 4242 4242 4242 4242, date future, CVC quelconque) — aucun débit réel n&apos;est effectué en mode test. Le paiement est vérifié directement auprès de Stripe avant validation.
+                  Utilisez une carte de test Stripe (ex : 4242 4242 4242 4242, date future, CVC quelconque) — aucun débit réel n&apos;est effectué en mode test. Vous restez sur ce site du début à la fin.
                 </p>
               </div>
             )}
@@ -951,20 +928,28 @@ function InscriptionForm() {
             )}
           </div>
 
-          <div className="flex justify-between">
-            <button type="button" onClick={() => goPrevFromSequence(3)} className="btn-secondary flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" /> Retour
-            </button>
-            <button type="button" onClick={() => goNextFromSequence(3)} disabled={loading || (paymentChoice === "card" && !stripePaid)}
-              className="btn-primary flex items-center gap-2 disabled:opacity-50">
-              {loading
-                ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</>
-                : <>Valider le paiement <ArrowRight className="w-4 h-4" /></>
-              }
-            </button>
-          </div>
-          {paymentChoice === "card" && !stripePaid && (
-            <p className="text-xs text-center text-red-400">Merci de finaliser le paiement Stripe ci-dessus avant de continuer.</p>
+          {/* Le bouton de validation manuelle ne s'affiche que pour le chèque :
+              pour la carte, le paiement Stripe Elements avance automatiquement à l'étape suivante. */}
+          {paymentChoice === "cheque" && (
+            <div className="flex justify-between">
+              <button type="button" onClick={() => goPrevFromSequence(3)} className="btn-secondary flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" /> Retour
+              </button>
+              <button type="button" onClick={() => goNextFromSequence(3)} disabled={loading}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50">
+                {loading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Finalisation…</>
+                  : <>Valider le paiement <ArrowRight className="w-4 h-4" /></>
+                }
+              </button>
+            </div>
+          )}
+          {paymentChoice === "card" && (
+            <div className="flex justify-start">
+              <button type="button" onClick={() => goPrevFromSequence(3)} className="btn-secondary flex items-center gap-2">
+                <ArrowLeft className="w-4 h-4" /> Retour
+              </button>
+            </div>
           )}
         </div>
       )}
