@@ -65,15 +65,20 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Frais uniques (ex : rédaction SEO), ajoutés à la 1ère facture ──
+    // Important : contrairement aux lignes récurrentes d'abonnement, l'API
+    // `add_invoice_items[].price_data` de Stripe n'accepte PAS `product_data`
+    // (création de produit à la volée) — elle exige un `product` existant.
+    // On crée donc le produit Stripe correspondant juste avant de l'utiliser.
     const oneTimeInvoiceItems: Array<{ price_data: any; quantity: number }> = [];
     for (const id of optionIds) {
       const opt = OPTION_PRICES[id];
       if (!opt || opt.cadence !== "once") continue;
+      const product = await stripe.products.create({ name: opt.name });
       oneTimeInvoiceItems.push({
         price_data: {
           currency: "eur",
           unit_amount: opt.unitAmount,
-          product_data: { name: opt.name },
+          product: product.id,
         },
         quantity: 1,
       });
