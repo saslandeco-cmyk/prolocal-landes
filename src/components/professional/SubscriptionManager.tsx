@@ -1,9 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
-import { CreditCard, Loader2, XCircle, RefreshCw, X } from "lucide-react";
+import { useEffect, useState, forwardRef, useImperativeHandle } from "react";
+import { CreditCard, Loader2, XCircle, X, Calendar } from "lucide-react";
 import StripePaymentForm from "./StripePaymentForm";
+import InvoicesPanel from "./InvoicesPanel";
+
+export interface SubscriptionManagerHandle {
+  refresh: () => void;
+  openCardModal: () => void;
+}
 
 interface SubscriptionItem {
+  itemId: string;
   name: string;
   amount: number | null;
   interval?: string;
@@ -22,28 +29,38 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   active:             { label: "Actif",              color: "bg-green-100 text-green-700" },
   trialing:           { label: "Période d'essai",    color: "bg-blue-100 text-blue-700" },
   past_due:           { label: "Paiement en retard",  color: "bg-orange-100 text-orange-700" },
-  incomplete:         { label: "Incomplet",           color: "bg-gray-100 text-gray-600" },
-  incomplete_expired: { label: "Expiré",              color: "bg-gray-100 text-gray-600" },
   canceled:           { label: "Résilié",             color: "bg-red-100 text-red-600" },
   unpaid:             { label: "Impayé",              color: "bg-red-100 text-red-600" },
 };
 
-export default function SubscriptionManager({ customerId }: { customerId: string }) {
+const SubscriptionManager = forwardRef<SubscriptionManagerHandle, { customerId: string }>(function SubscriptionManager({ customerId }, ref) {
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
   const [showCardModal, setShowCardModal] = useState(false);
   const [cardClientSecret, setCardClientSecret] = useState<string | null>(null);
   const [preparingCard, setPreparingCard] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(`/api/subscriptions/list?customerId=${encodeURIComponent(customerId)}`);
       const data = await res.json();
-      setSubs(data.subscriptions || []);
+      if (data.error) {
+        setLoadError(data.error);
+        setSubs([]);
+        return;
+      }
+      // Les abonnements "incomplet" / "expiré" (paiement jamais finalisé) ne sont pas affichés
+      const filtered = (data.subscriptions || []).filter(
+        (s: Subscription) => s.status !== "incomplete" && s.status !== "incomplete_expired"
+      );
+      setSubs(filtered);
     } catch {
-      // silencieux — l'utilisateur peut réessayer via le bouton Actualiser
+      setLoadError("Erreur réseau lors du chargement de vos abonnements.");
     } finally {
       setLoading(false);
     }
@@ -67,6 +84,25 @@ export default function SubscriptionManager({ customerId }: { customerId: string
       alert("Erreur réseau lors de la résiliation.");
     } finally {
       setCancellingId(null);
+    }
+  };
+
+  const handleRemoveItem = async (subscriptionId: string, itemId: string, productName: string) => {
+    if (!confirm(`Confirmer le retrait de "${productName}" ? Les autres produits de cet abonnement resteront actifs.`)) return;
+    setRemovingItemId(itemId);
+    try {
+      const res = await fetch("/api/subscriptions/remove-item", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscriptionId, itemId }),
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      await load();
+    } catch {
+      alert("Erreur réseau lors du retrait de ce produit.");
+    } finally {
+      setRemovingItemId(null);
     }
   };
 
@@ -106,31 +142,36 @@ export default function SubscriptionManager({ customerId }: { customerId: string
     await load();
   };
 
+  useImperativeHandle(ref, () => ({
+    refresh: load,
+    openCardModal,
+  }));
+
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Mes abonnements Stripe</p>
-        <div className="flex items-center gap-2">
-          <button onClick={load} className="text-xs text-gray-400 hover:text-landes-forest flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> Actualiser
-          </button>
-          <button
-            onClick={openCardModal}
-            className="flex items-center gap-1.5 text-xs font-semibold text-landes-forest border border-landes-forest/40 px-3 py-1.5 rounded-lg hover:bg-landes-forest hover:text-white transition-colors"
-          >
-            <CreditCard className="w-3.5 h-3.5" /> Changer de carte
-          </button>
-        </div>
-      </div>
-
       {loading ? (
         <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
           <Loader2 className="w-4 h-4 animate-spin" /> Chargement de vos abonnements…
         </div>
+      ) : loadError ? (
+        <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          Erreur : {loadError}
+        </p>
       ) : subs.length === 0 ? (
         <p className="text-sm text-gray-400 py-2">Aucun abonnement Stripe actif pour le moment.</p>
       ) : (
-        <div className="space-y-3">
+        <>
+          {subs.filter(s => s.status === "active").length > 1 && (
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
+              Vous avez plusieurs abonnements actifs — chacun peut être résilié indépendamment via son propre bouton ci-dessous.
+            </p>
+          )}
+          {subs.some(s => s.items.length > 1) && (
+            <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3">
+              Un abonnement qui regroupe plusieurs produits peut être ajusté produit par produit (bouton « Retirer » à côté de chaque ligne), sans résilier les autres.
+            </p>
+          )}
+          <div className="space-y-3">
           {subs.map(sub => {
             const statusInfo = STATUS_LABELS[sub.status] || { label: sub.status, color: "bg-gray-100 text-gray-600" };
             return (
@@ -141,20 +182,36 @@ export default function SubscriptionManager({ customerId }: { customerId: string
                     <span className="text-xs text-orange-600 font-medium">Résiliation programmée</span>
                   )}
                 </div>
-                <ul className="space-y-1 mb-3">
-                  {sub.items.map((item, i) => (
-                    <li key={i} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700">{item.name}</span>
-                      <span className="text-gray-500">
-                        {item.amount != null ? `${(item.amount / 100).toFixed(2)}€` : ""}
-                        {item.interval ? `/${item.interval === "month" ? "mois" : item.interval}` : ""}
-                      </span>
+                <ul className="space-y-1.5 mb-3">
+                  {sub.items.map((item) => (
+                    <li key={item.itemId} className="flex items-center justify-between text-sm gap-2">
+                      <span className="text-gray-700 min-w-0 truncate">{item.name}</span>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-gray-500 whitespace-nowrap">
+                          {item.amount != null ? `${(item.amount / 100).toFixed(2)}€` : ""}
+                          {item.interval ? `/${item.interval === "month" ? "mois" : item.interval}` : ""}
+                        </span>
+                        {sub.items.length > 1 && sub.status === "active" && !sub.cancelAtPeriodEnd && (
+                          <button
+                            onClick={() => handleRemoveItem(sub.id, item.itemId, item.name)}
+                            disabled={removingItemId === item.itemId}
+                            title={`Retirer uniquement "${item.name}"`}
+                            className="text-[10px] font-semibold text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 px-2 py-0.5 rounded-full transition-colors disabled:opacity-50 whitespace-nowrap"
+                          >
+                            {removingItemId === item.itemId ? "…" : "Retirer"}
+                          </button>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>
-                {sub.currentPeriodEnd && (
-                  <p className="text-xs text-gray-400 mb-2">
-                    Prochaine échéance : {new Date(sub.currentPeriodEnd * 1000).toLocaleDateString("fr-FR")}
+                {sub.currentPeriodEnd && (sub.status === "active" || sub.status === "trialing") && (
+                  <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                    {sub.cancelAtPeriodEnd
+                      ? <>Se termine le <strong className="text-gray-700">{new Date(sub.currentPeriodEnd * 1000).toLocaleDateString("fr-FR")}</strong></>
+                      : <>Renouvellement le <strong className="text-gray-700">{new Date(sub.currentPeriodEnd * 1000).toLocaleDateString("fr-FR")}</strong></>
+                    }
                   </p>
                 )}
                 {sub.defaultPaymentMethod && (
@@ -170,14 +227,15 @@ export default function SubscriptionManager({ customerId }: { customerId: string
                   >
                     {cancellingId === sub.id
                       ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Résiliation…</>
-                      : <><XCircle className="w-3.5 h-3.5" /> Résilier cet abonnement</>
+                      : <><XCircle className="w-3.5 h-3.5" /> {sub.items.length > 1 ? "Résilier tout cet abonnement" : "Résilier cet abonnement"}</>
                     }
                   </button>
                 )}
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Modale changement de carte */}
@@ -205,6 +263,11 @@ export default function SubscriptionManager({ customerId }: { customerId: string
           </div>
         </div>
       )}
+
+      {/* Mes factures */}
+      <InvoicesPanel customerId={customerId} />
     </div>
   );
-}
+});
+
+export default SubscriptionManager;

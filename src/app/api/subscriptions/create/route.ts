@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, isStripeConfigured } from "@/lib/stripeServer";
-import { PLAN_PRICES, OPTION_PRICES } from "@/lib/pricing";
+import { PLAN_PRICES } from "@/lib/pricing";
+import { getEffectiveOptionPrices } from "@/lib/db/options";
 
 /**
  * POST /api/subscriptions/create
  *
- * Crée (ou réutilise) un client Stripe puis un abonnement en statut
- * "incomplete", avec paiement géré entièrement sur le site via Stripe
- * Elements (Payment Element) — le client ne quitte jamais la page.
+ * Prépare le paiement : crée (ou réutilise) un client Stripe, vérifie
+ * qu'aucune formule/option demandée n'est déjà active pour ce SIREN, puis
+ * crée un SetupIntent permettant d'enregistrer une carte bancaire via
+ * Stripe Elements (aucun abonnement n'est créé à ce stade).
  *
- * Retourne le `client_secret` du PaymentIntent associé à la première
- * facture, à utiliser côté navigateur pour afficher le formulaire de
- * paiement et confirmer le règlement.
+ * Important : les options complémentaires sont des produits à part entière,
+ * totalement indépendants des formules. La carte enregistrée ici sert
+ * ensuite à créer, séparément, un abonnement pour la formule ET un autre
+ * abonnement pour les options (voir /api/subscriptions/finalize) — jamais
+ * un seul et même abonnement mélangeant formule et options.
  *
  * Body attendu :
  * {
@@ -19,6 +23,8 @@ import { PLAN_PRICES, OPTION_PRICES } from "@/lib/pricing";
  *   optionIds: string[],
  *   email: string,
  *   companyName: string,
+ *   siren?: string,
+ *   billing?: { legalForm?, siren?, vatNumber?, address?, postalCode?, city? },
  * }
  */
 export async function POST(req: NextRequest) {
@@ -34,114 +40,115 @@ export async function POST(req: NextRequest) {
     const planId: string | undefined = body.planId;
     const optionIds: string[] = Array.isArray(body.optionIds) ? body.optionIds : [];
     const email: string | undefined = body.email;
+    const OPTION_PRICES = await getEffectiveOptionPrices();
     const companyName: string = body.companyName || "Inscription Prolocal-Landes";
+    const billing: {
+      legalForm?: string; siren?: string; vatNumber?: string;
+      address?: string; postalCode?: string; city?: string;
+    } = body.billing || {};
+    const siren: string = (billing.siren || body.siren || "").replace(/\s/g, "");
 
-    // ── Éléments récurrents (formule + options mensuelles) ──
-    const recurringItems: Array<{ price_data: any; quantity: number }> = [];
-    if (planId && PLAN_PRICES[planId]) {
-      const item = PLAN_PRICES[planId];
-      recurringItems.push({
-        price_data: {
-          currency: "eur",
-          unit_amount: item.unitAmount,
-          recurring: { interval: "month" },
-          product_data: { name: item.name },
-        },
-        quantity: 1,
-      });
-    }
-    for (const id of optionIds) {
-      const opt = OPTION_PRICES[id];
-      if (!opt || opt.cadence === "once") continue;
-      recurringItems.push({
-        price_data: {
-          currency: "eur",
-          unit_amount: opt.unitAmount,
-          recurring: { interval: "month" },
-          product_data: { name: opt.name },
-        },
-        quantity: 1,
-      });
-    }
-
-    // ── Frais uniques (ex : rédaction SEO), ajoutés à la 1ère facture ──
-    // Important : contrairement aux lignes récurrentes d'abonnement, l'API
-    // `add_invoice_items[].price_data` de Stripe n'accepte PAS `product_data`
-    // (création de produit à la volée) — elle exige un `product` existant.
-    // On crée donc le produit Stripe correspondant juste avant de l'utiliser.
-    const oneTimeInvoiceItems: Array<{ price_data: any; quantity: number }> = [];
-    for (const id of optionIds) {
-      const opt = OPTION_PRICES[id];
-      if (!opt || opt.cadence !== "once") continue;
-      const product = await stripe.products.create({ name: opt.name });
-      oneTimeInvoiceItems.push({
-        price_data: {
-          currency: "eur",
-          unit_amount: opt.unitAmount,
-          product: product.id,
-        },
-        quantity: 1,
-      });
-    }
-
-    if (recurringItems.length === 0 && oneTimeInvoiceItems.length === 0) {
+    if (!planId && optionIds.length === 0) {
       return NextResponse.json({ error: "Aucun élément à facturer." }, { status: 400 });
     }
 
+    // ── Blocage : une formule ou une option déjà active pour ce SIREN ne peut
+    // pas être recommandée (quantité limitée à 1 par SIREN, tous clients Stripe
+    // confondus pour cette entreprise).
+    if (siren) {
+      try {
+        const matchingCustomers = await stripe.customers.search({
+          query: `metadata['siren']:'${siren}'`,
+          limit: 100,
+        });
+
+        const activeProductIds = new Set<string>();
+        for (const cust of matchingCustomers.data) {
+          const subs = await stripe.subscriptions.list({ customer: cust.id, status: "active", limit: 100 });
+          for (const sub of subs.data) {
+            for (const li of sub.items.data) {
+              const productRef = li.price.product;
+              if (typeof productRef === "string") activeProductIds.add(productRef);
+            }
+          }
+        }
+
+        const alreadyActiveLabels: string[] = [];
+        if (planId && PLAN_PRICES[planId] && activeProductIds.has(PLAN_PRICES[planId].stripeProductId)) {
+          alreadyActiveLabels.push(PLAN_PRICES[planId].name);
+        }
+        for (const id of optionIds) {
+          const opt = OPTION_PRICES[id];
+          if (opt && activeProductIds.has(opt.stripeProductId)) {
+            alreadyActiveLabels.push(opt.name);
+          }
+        }
+
+        if (alreadyActiveLabels.length > 0) {
+          return NextResponse.json(
+            { error: `Déjà actif pour ce SIREN (limité à 1 exemplaire) : ${alreadyActiveLabels.join(", ")}.` },
+            { status: 409 }
+          );
+        }
+      } catch (searchErr) {
+        console.warn("[api/subscriptions/create] Vérification SIREN impossible:", searchErr);
+      }
+    }
+
     // ── Client Stripe : réutilise un client existant par email, sinon en crée un ──
+    const customerPayload = {
+      name: companyName,
+      address: (billing.address || billing.postalCode || billing.city) ? {
+        line1: billing.address || undefined,
+        postal_code: billing.postalCode || undefined,
+        city: billing.city || undefined,
+        country: "FR",
+      } : undefined,
+      metadata: {
+        siren: siren || "",
+        legalForm: billing.legalForm || "",
+      },
+    };
+
     let customerId: string;
     if (email) {
       const existing = await stripe.customers.list({ email, limit: 1 });
-      customerId = existing.data.length > 0 ? existing.data[0].id : (await stripe.customers.create({ email, name: companyName })).id;
+      if (existing.data.length > 0) {
+        customerId = existing.data[0].id;
+        await stripe.customers.update(customerId, customerPayload);
+      } else {
+        customerId = (await stripe.customers.create({ email, ...customerPayload })).id;
+      }
     } else {
-      customerId = (await stripe.customers.create({ name: companyName })).id;
+      customerId = (await stripe.customers.create(customerPayload)).id;
     }
 
-    // Cas particulier : uniquement des frais uniques (pas d'abonnement récurrent)
-    // → on utilise un simple PaymentIntent plutôt qu'un abonnement.
-    if (recurringItems.length === 0) {
-      const amount = oneTimeInvoiceItems.reduce((sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount,
-        currency: "eur",
-        customer: customerId,
-        automatic_payment_methods: { enabled: true },
-        metadata: { companyName, planId: planId || "", optionIds: optionIds.join(",") },
-      });
-      return NextResponse.json({
-        clientSecret: paymentIntent.client_secret,
-        customerId,
-        subscriptionId: null,
-        mode: "payment",
-      });
+    // Numéro de TVA intracommunautaire (facultatif)
+    if (billing.vatNumber && billing.vatNumber.trim()) {
+      try {
+        await stripe.customers.createTaxId(customerId, { type: "eu_vat", value: billing.vatNumber.trim() });
+      } catch {
+        // Un numéro de TVA déjà enregistré ou invalide ne doit pas bloquer le paiement
+      }
     }
 
-    // ── Abonnement (statut "incomplete" tant que le paiement n'est pas confirmé) ──
-    const subscription = await stripe.subscriptions.create({
+    // ── SetupIntent : enregistre la carte, sans créer d'abonnement pour l'instant.
+    // La création réelle (et dissociée) des abonnements se fait dans /finalize,
+    // une fois la carte confirmée côté client.
+    const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      items: recurringItems as any,
-      add_invoice_items: oneTimeInvoiceItems.length > 0 ? (oneTimeInvoiceItems as any) : undefined,
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+      automatic_payment_methods: { enabled: true },
+      usage: "off_session",
       metadata: { companyName, planId: planId || "", optionIds: optionIds.join(",") },
     });
 
-    const invoice = subscription.latest_invoice as any;
-    const paymentIntent = invoice?.payment_intent as any;
-
-    if (!paymentIntent?.client_secret) {
-      return NextResponse.json({ error: "Impossible d'initialiser le paiement Stripe." }, { status: 500 });
-    }
-
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: setupIntent.client_secret,
       customerId,
-      subscriptionId: subscription.id,
-      mode: "subscription",
+      mode: "setup",
     });
   } catch (err: any) {
     console.error("[api/subscriptions/create] Erreur:", err);
-    return NextResponse.json({ error: err.message || "Erreur lors de la création de l'abonnement." }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Erreur lors de la préparation du paiement." }, { status: 500 });
   }
 }

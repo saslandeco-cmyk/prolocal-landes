@@ -1,197 +1,41 @@
-"use client";
-import { useState, useEffect, useMemo, Suspense, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { MapPin, List, Map as MapIcon } from "lucide-react";
-import { getProfessionalsWithImages } from "@/lib/storage";
-import { Professional } from "@/types";
-import ProfessionalCard from "@/components/professional/ProfessionalCard";
-import SearchBar from "@/components/professional/SearchBar";
-import dynamic from "next/dynamic";
+import type { Metadata } from "next";
+import AnnuaireSearchClient from "@/components/professional/AnnuaireSearchClient";
 
-const MultiMap = dynamic(() => import("@/components/map/MultiMap"), { ssr: false });
+/**
+ * Page de résultats de recherche libre (/annuaire?category=X&q=Y).
+ *
+ * ⚠️ Contrairement aux pages catégories (/categories/[slug]) et aux pages
+ * ville (/annuaire/[ville]), cette page accepte une recherche texte libre
+ * ("q") pouvant prendre une infinité de valeurs. Générer un contenu unique
+ * pour chaque combinaison créerait un risque de "contenu fin dupliqué à
+ * l'infini" aux yeux de Google (pratique déconseillée, similaire aux pages
+ * de résultats filtrés d'un site e-commerce).
+ *
+ * La bonne pratique appliquée ici : le contenu reste utile pour
+ * l'utilisateur (résumé dynamique de la recherche, voir
+ * AnnuaireSearchClient.tsx), mais la page est explicitement exclue de
+ * l'indexation (`robots: noindex`) — l'autorité SEO est concentrée sur les
+ * pages canoniques déjà optimisées (catégories et villes), qui doivent
+ * être les cibles réelles du classement Google.
+ */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }): Promise<Metadata> {
+  const params = await searchParams;
+  const category = params.category || "";
+  const q = params.q || "";
+  const city = params.city || "";
 
-function AnnuaireContent() {
-  const searchParams = useSearchParams();
-  const [pros, setPros] = useState<Professional[]>([]);
-  const [filtered, setFiltered] = useState<Professional[]>([]);
+  const parts = [category, q].filter(Boolean).join(" — ");
+  const title = parts
+    ? `${parts}${city ? ` à ${city}` : ""} | Prolocal-Landes`
+    : "Résultats de recherche | Prolocal-Landes";
 
-  // Dérivés réactifs des search params — se recalculent à chaque changement d'URL
-  const search    = useMemo(() => searchParams.get("q")        || "", [searchParams]);
-  const category  = useMemo(() => searchParams.get("category") || "", [searchParams]);
-  const city      = useMemo(() => searchParams.get("city")     || "", [searchParams]);
-  const geoLat    = useMemo(() => parseFloat(searchParams.get("lat") || "") || null, [searchParams]);
-  const geoLng    = useMemo(() => parseFloat(searchParams.get("lng") || "") || null, [searchParams]);
-  const geoRadius = useMemo(() => parseInt(searchParams.get("radius") || "25", 10), [searchParams]);
-  const [view, setView] = useState<"list" | "map">("list");
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-
-  // Haversine distance en km
-  const haversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLng/2)**2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return {
+    title,
+    description: "Résultats de recherche sur l'annuaire des professionnels des Landes.",
+    robots: { index: false, follow: true },
   };
-
-  useEffect(() => {
-    getProfessionalsWithImages().then(all => {
-      const data = all.filter(p => p.status === "active");
-      setPros(data);
-      setFiltered(data);
-    });
-  }, []);
-
-  // Scroll vers les résultats à chaque arrivée sur la page (recherche depuis l'accueil ou une autre page)
-  useEffect(() => {
-    const t = setTimeout(() => {
-      document.getElementById("resultats")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 150);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    let results = pros;
-    if (search) {
-      const q = search.toLowerCase();
-      results = results.filter(p => {
-        const desc = (p.description ?? "").replace(/<[^>]*>/g, " ").toLowerCase();
-        const svcs = (p.services || []).join(" ").toLowerCase();
-        return (
-          (p.companyName ?? "").toLowerCase().includes(q) ||
-          (p.category ?? "").toLowerCase().includes(q) ||
-          (p.subcategory ?? "").toLowerCase().includes(q) ||
-          desc.includes(q) ||
-          (p.city ?? "").toLowerCase().includes(q) ||
-          svcs.includes(q) ||
-          (p.activityTitle || "").toLowerCase().includes(q)
-        );
-      });
-    }
-    if (category) results = results.filter(p => p.category === category);
-    if (geoLat !== null && geoLng !== null) {
-      // Filtre par rayon géographique
-      results = results.filter(p => {
-        if (!p.lat || !p.lng) return false;
-        return haversine(geoLat, geoLng, p.lat, p.lng) <= geoRadius;
-      });
-      // Tri par distance croissante
-      results.sort((a, b) => {
-        const dA = haversine(geoLat, geoLng, a.lat!, a.lng!);
-        const dB = haversine(geoLat, geoLng, b.lat!, b.lng!);
-        return dA - dB;
-      });
-    } else {
-      if (city) {
-        const c = city.toLowerCase();
-        results = results.filter(p =>
-          (p.city ?? "").toLowerCase().includes(c) || (p.postalCode ?? "").includes(c)
-        );
-      }
-      const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
-      results.sort((a, b) => order[a.plan] - order[b.plan]);
-    }
-    setFiltered(results);
-  }, [search, category, city, geoLat, geoLng, geoRadius, pros]);
-
-  const handleSelectPro = useCallback((id: string) => {
-    setHighlightId(id);
-    if (view === "map") {
-      setView("list");
-      setTimeout(() => {
-        document.getElementById(`pro-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
-    } else {
-      document.getElementById(`pro-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [view]);
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-landes-pine px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h1 className="text-2xl font-bold text-white">Annuaire des professionnels</h1>
-              <p className="text-sm text-gray-300">Landes (40) — <span className="font-medium text-landes-sand">{filtered.length} résultat{filtered.length > 1 ? "s" : ""}</span>
-                {geoLat !== null && <span className="ml-2 text-xs bg-landes-forest/30 text-landes-sand px-2 py-0.5 rounded-full">📍 Autour de moi · {geoRadius} km</span>}
-              </p>
-            </div>
-            {/* View toggle */}
-            <div className="flex items-center gap-1 bg-white/10 p-1 rounded-lg">
-              <button
-                onClick={() => setView("list")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "list" ? "bg-white text-landes-forest shadow-sm" : "text-white/70 hover:text-white"}`}
-              >
-                <List className="w-4 h-4" /> Liste
-              </button>
-              <button
-                onClick={() => setView("map")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${view === "map" ? "bg-white text-landes-forest shadow-sm" : "text-white/70 hover:text-white"}`}
-              >
-                <MapIcon className="w-4 h-4" /> Carte
-              </button>
-            </div>
-          </div>
-
-          {/* Same search form as hero */}
-          <SearchBar initialQuery={search} initialLocation={geoLat ? "📍 Ma position" : city} compact />
-        </div>
-      </div>
-
-      {/* Content */}
-      <div id="resultats" className="flex-1 max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 scroll-mt-24">
-        {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <MapPin className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-500 mb-2">Aucun résultat</h3>
-            <p className="text-gray-400">Essayez de modifier vos critères.</p>
-          </div>
-        ) : view === "list" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map(pro => (
-              <div
-                key={pro.id}
-                id={`pro-${pro.id}`}
-                className={`transition-all duration-300 ${highlightId === pro.id ? "ring-2 ring-landes-forest ring-offset-2 rounded-2xl" : ""}`}
-              >
-                <ProfessionalCard pro={pro} />
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* MAP VIEW — split: list left, map right */
-          <div className="flex flex-col lg:flex-row gap-4" style={{ height: "calc(100vh - 260px)", minHeight: 500 }}>
-            {/* List panel */}
-            <div className="lg:w-80 xl:w-96 flex-shrink-0 overflow-y-auto space-y-3 pr-1">
-              {filtered.map(pro => (
-                <div
-                  key={pro.id}
-                  id={`pro-${pro.id}`}
-                  onClick={() => setHighlightId(pro.id)}
-                  className={`transition-all duration-200 cursor-pointer ${highlightId === pro.id ? "ring-2 ring-landes-forest ring-offset-1 rounded-2xl" : ""}`}
-                >
-                  <ProfessionalCard pro={pro} />
-                </div>
-              ))}
-            </div>
-
-            {/* Map panel */}
-            <div className="flex-1 rounded-2xl overflow-hidden border border-gray-200 shadow-sm" style={{ minHeight: 400 }}>
-              <MultiMap professionals={filtered} onSelectPro={handleSelectPro} />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 export default function AnnuairePage() {
-  return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-500">Chargement...</div>}>
-      <AnnuaireContent />
-    </Suspense>
-  );
+  return <AnnuaireSearchClient />;
 }

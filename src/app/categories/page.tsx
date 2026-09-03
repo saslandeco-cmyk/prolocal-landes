@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { CITY_META } from "@/lib/cityData";
 
 const CATEGORIES = [
   { slug: "alimentation",  label: "Alimentation & Épicerie",    emoji: "🥖", desc: "Boulangers, fromagers, épiciers et artisans de bouche" },
@@ -91,6 +92,22 @@ export default function CategoriesPage() {
                   Voir les professionnels <ArrowRight className="w-3.5 h-3.5" />
                 </span>
               </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Parcourir par ville */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-14">
+        <h2 className="text-xl font-bold text-landes-pine mb-4">Parcourir par ville</h2>
+        <div className="flex flex-wrap gap-2">
+          {Object.values(CITY_META).map(city => (
+            <Link
+              key={city.slug}
+              href={`/annuaire/${city.slug}`}
+              className="px-4 py-2 rounded-full text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:border-landes-sage hover:text-landes-forest transition-colors"
+            >
+              {city.name}
             </Link>
           ))}
         </div>

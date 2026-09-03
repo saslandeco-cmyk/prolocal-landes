@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search, Phone, Mail, MapPin, Building2, FileText,
   ChevronRight, X, Clock, ArrowLeft, Star,
   MessageSquare, Send, Calendar, CheckCircle, Plus, Trash2,
+  Download, Upload, Loader2,
 } from "lucide-react";
 import { getClientsByPro, saveClient, deleteClient, generateId, getDocumentsByPro } from "@/lib/storage";
 import type { Client, ClientNote, ClientStatus, BillingDocument } from "@/types";
@@ -271,18 +272,47 @@ export default function CrmTab({ pro }: { pro: Professional }) {
   const [filterDoc, setFilterDoc]    = useState<"tous" | "devis" | "facture" | "avoir">("tous");
   const [filterPeriod, setFilterPeriod] = useState<"tous" | "mois" | "3mois" | "6mois" | "annee">("tous");
   const [sortDir, setSortDir]    = useState<"desc" | "asc">("desc");
+  const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  const load = () => {
-    const allClients = getClientsByPro(pro.id);
-    const allDocs    = getDocumentsByPro(pro.id);
+  // ── Étape 5 de la migration base de données ──
+  // Charge en priorité depuis la base (prospects/clients accessibles
+  // depuis n'importe quel appareil), avec repli automatique et silencieux
+  // sur localStorage si la base est indisponible ou pas encore alimentée
+  // pour ce professionnel.
+  const load = async () => {
+    setLoading(true);
+    setLoadError(false);
+    const allDocs = getDocumentsByPro(pro.id);
     setDocs(allDocs);
-    // Seuls les clients qui ont au moins un document
-    const clientsWithDocs = allClients.filter(c =>
-      allDocs.some(d => matchesClient(d, c))
-    );
-    setClients(clientsWithDocs.sort((a, b) =>
+
+    let allClients: Client[] | null = null;
+    try {
+      const res = await fetch(`/api/db/clients?proId=${encodeURIComponent(pro.id)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.clients) && json.clients.length > 0) allClients = json.clients;
+      }
+    } catch {
+      // Réseau indisponible ou base non configurée : repli silencieux ci-dessous
+    }
+
+    if (!allClients) {
+      try {
+        allClients = getClientsByPro(pro.id);
+      } catch {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Tous les clients et prospects, qu'ils aient ou non un document associé
+    // (un prospect importé via CSV n'a par définition pas encore de devis/facture).
+    setClients(allClients.sort((a, b) =>
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     ));
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, [pro.id]);
@@ -297,6 +327,111 @@ export default function CrmTab({ pro }: { pro: Professional }) {
     const companyMatch = doc.client.company && client.company &&
       doc.client.company.toLowerCase() === client.company.toLowerCase();
     return emailMatch || nameMatch || (companyMatch && nameMatch);
+  };
+
+  // ── Export CSV — l'ensemble des clients ET prospects (avec ou sans document) ──
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
+
+  const CSV_COLUMNS = [
+    "Prénom", "Nom", "Entreprise", "Email", "Téléphone", "Mobile",
+    "Adresse", "Code postal", "Ville", "Statut", "Source", "Tags", "SIRET", "N° TVA",
+  ];
+
+  const handleExportCsv = () => {
+    const all = getClientsByPro(pro.id);
+    const rows = all.map(c => [
+      c.firstName, c.lastName, c.company || "", c.email || "", c.phone || "", c.mobile || "",
+      c.address || "", c.postalCode || "", c.city || "", c.status, c.source || "",
+      (c.tags || []).join(" | "), c.siret || "", c.vatNumber || "",
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`));
+    const csv = [CSV_COLUMNS.join(";"), ...rows.map(r => r.join(";"))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prospects-clients-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCsv = async (file: File) => {
+    const rawText = await file.text();
+    const text = rawText.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    const lines = text.split("\n").filter(l => l.trim().length > 0);
+    if (lines.length < 2) { setImportSummary("Fichier vide ou invalide."); return; }
+
+    const firstLine = lines[0];
+    const sep = (firstLine.split(";").length >= firstLine.split(",").length) ? ";" : ",";
+
+    const parseCSVLine = (line: string): string[] => {
+      const result: string[] = [];
+      let cur = "", inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQ = !inQ; continue; }
+        if (ch === sep && !inQ) { result.push(cur.trim()); cur = ""; continue; }
+        cur += ch;
+      }
+      result.push(cur.trim());
+      return result;
+    };
+
+    const headers = parseCSVLine(lines[0]);
+    const idxOf = (name: string) => headers.findIndex(h => h.toLowerCase().trim() === name.toLowerCase().trim());
+
+    const existing = getClientsByPro(pro.id);
+    const validStatuses: ClientStatus[] = ["prospect", "actif", "inactif", "vip"];
+    let imported = 0, updated = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      const val = (name: string) => (cols[idxOf(name)] ?? "").trim();
+
+      const firstName = val("Prénom");
+      const lastName = val("Nom");
+      const email = val("Email");
+      const company = val("Entreprise");
+      if (!firstName && !lastName && !company) continue;
+
+      // Doublon : même email, ou même nom + prénom + entreprise
+      const match = existing.find(c =>
+        (email && c.email && c.email.toLowerCase() === email.toLowerCase()) ||
+        (c.firstName.toLowerCase() === firstName.toLowerCase() &&
+         c.lastName.toLowerCase()  === lastName.toLowerCase() &&
+         (c.company || "").toLowerCase() === company.toLowerCase())
+      );
+
+      const statusRaw = val("Statut").toLowerCase() as ClientStatus;
+      const now = new Date().toISOString();
+      const client: Client = {
+        id:         match?.id || generateId(),
+        proId:      pro.id,
+        firstName:  firstName || match?.firstName || "",
+        lastName:   lastName  || match?.lastName  || "",
+        company:    company   || match?.company,
+        email:      email     || match?.email,
+        phone:      val("Téléphone")  || match?.phone,
+        mobile:     val("Mobile")     || match?.mobile,
+        address:    val("Adresse")    || match?.address,
+        postalCode: val("Code postal")|| match?.postalCode,
+        city:       val("Ville")      || match?.city,
+        status:     validStatuses.includes(statusRaw) ? statusRaw : (match?.status || "prospect"),
+        source:     val("Source")     || match?.source,
+        tags:       val("Tags") ? val("Tags").split("|").map(t => t.trim()).filter(Boolean) : match?.tags,
+        siret:      val("SIRET")      || match?.siret,
+        vatNumber:  val("N° TVA")     || match?.vatNumber,
+        notes:      match?.notes || [],
+        createdAt:  match?.createdAt || now,
+        updatedAt:  now,
+      };
+      saveClient(client);
+      if (match) updated++; else imported++;
+    }
+
+    load();
+    setImportSummary(`✅ ${imported} nouveau${imported > 1 ? "x" : ""} prospect${imported > 1 ? "s" : ""}/client${imported > 1 ? "s" : ""}, ${updated} mis à jour.`);
+    setTimeout(() => setImportSummary(null), 5000);
   };
 
   const getClientDocs = (client: Client) =>
@@ -352,6 +487,28 @@ export default function CrmTab({ pro }: { pro: Professional }) {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="card p-8 flex flex-col items-center justify-center gap-4 text-center min-h-[40vh]">
+        <p className="text-lg font-bold text-landes-pine">Impossible de charger vos prospects/clients</p>
+        <p className="text-sm text-gray-500 max-w-sm">
+          Vérifiez votre connexion internet et réessayez.
+        </p>
+        <button onClick={() => load()} className="btn-primary flex items-center gap-2">
+          <Loader2 className="w-4 h-4" /> Réessayer
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="w-8 h-8 animate-spin text-landes-forest" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -360,10 +517,38 @@ export default function CrmTab({ pro }: { pro: Professional }) {
           <div>
             <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Clients</h2>
             <p className="text-sm text-gray-500">
-              Les clients sont ajoutés automatiquement lors de la création d'un devis ou d'une facture.
+              Ajoutés automatiquement lors d'un devis/facture, ou importés depuis un fichier CSV.
             </p>
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleExportCsv}
+              className="flex items-center gap-1.5 text-xs font-semibold text-landes-forest border border-landes-forest/40 px-3 py-2 rounded-lg hover:bg-landes-forest hover:text-white transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> Exporter CSV
+            </button>
+            <button
+              onClick={() => csvInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 border border-gray-200 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Upload className="w-3.5 h-3.5" /> Importer CSV
+            </button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0];
+                if (file) handleImportCsv(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </div>
+        {importSummary && (
+          <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2">{importSummary}</p>
+        )}
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
           {[

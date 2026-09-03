@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { MapPin, ArrowRight, Search, X, Loader2 } from "lucide-react";
 import { getProfessionals } from "@/lib/storage";
+import { buildProfileUrl } from "@/lib/profileUrl";
 import { Professional } from "@/types";
 
 const MultiMap = dynamic(() => import("@/components/map/MultiMap"), { ssr: false });
@@ -222,7 +223,10 @@ export default function HomeMap() {
         {/* Carte */}
         <div className="card-map" style={{ height: 520 }}>
           {loaded ? (
-            <MultiMap professionals={pros} onSelectPro={id => router.push(`/annuaire/${id}`)} flyTo={flyTo} />
+            <MultiMap professionals={pros} onSelectPro={id => {
+              const p = pros.find(pr => pr.id === id);
+              router.push(p ? buildProfileUrl(p) : `/annuaire/${id}`);
+            }} flyTo={flyTo} />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gray-50">
               <div className="text-center space-y-2">

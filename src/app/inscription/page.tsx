@@ -1,13 +1,13 @@
 "use client";
 import {
   CheckCircle, AlertCircle, Loader2, ArrowRight, ArrowLeft,
-  ImagePlus, X, CreditCard, Mail,
+  ImagePlus, X, CreditCard, Mail, UserCheck,
 } from "lucide-react";
 import { useState, useRef, useMemo, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PLANS, CATEGORIES, SUBCATEGORIES, type Professional } from "@/types";
-import { saveProfessional, setSession, generateId, getProfessionals } from "@/lib/storage";
+import { saveProfessional, setSession, generateId, getProfessionals, getProfessionalById } from "@/lib/storage";
 import { REQUIRE_VALIDATION } from "@/lib/config";
 import { lookupSiren } from "@/lib/siren";
 import RichTextEditor from "@/components/ui/RichTextEditor";
@@ -20,10 +20,10 @@ type Step = 1 | 2 | "pub" | "seo" | 3 | 4;
 
 const MAX_PHOTOS = 5;
 
-const COMPLEMENTARY_OPTIONS = [
-  { id: "pub",   label: "Encart publicitaire ciblé",      price: "50€", unit: "/mois" },
-  { id: "seo",   label: "Service de rédaction SEO",       price: "50€", unit: "(frais uniques)" },
-  { id: "crm",   label: "Gestion prospects/clients",      price: "30€", unit: "/mois" },
+const DEFAULT_COMPLEMENTARY_OPTIONS = [
+  { id: "pub",   label: "Encart publicitaire ciblé",      price: "25€", unit: "/mois" },
+  { id: "seo",   label: "Service de rédaction SEO",       price: "30€", unit: "(frais uniques)" },
+  { id: "crm",   label: "Gestion prospects/clients",      price: "9€",  unit: "/mois" },
 ] as const;
 
 async function readFileAsBase64(file: File, type: "logo" | "banner" | "photo" = "photo"): Promise<string> {
@@ -213,11 +213,42 @@ const LANDES_CITIES = [
 
 function InscriptionForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [COMPLEMENTARY_OPTIONS, setComplementaryOptions] = useState<
+    { id: string; label: string; price: string; unit: string }[]
+  >(DEFAULT_COMPLEMENTARY_OPTIONS as any);
+
+  // Charge le catalogue effectif des options (base si configurée/alimentée
+  // par l'admin, sinon repli automatique sur les valeurs par défaut ci-dessus).
+  useEffect(() => {
+    fetch("/api/db/options")
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (!data?.options) return;
+        const list = Object.values(data.options) as { id: string; name: string; unitAmount: number; cadence: string }[];
+        if (list.length === 0) return;
+        setComplementaryOptions(list.map(opt => ({
+          id: opt.id,
+          label: opt.name,
+          price: `${(opt.unitAmount / 100).toFixed(0)}€`,
+          unit: opt.cadence === "once" ? "(frais uniques)" : "/mois",
+        })));
+      })
+      .catch(() => {
+        // Silencieux : le catalogue par défaut reste utilisé
+      });
+  }, []);
+
   const [step,         setStep]         = useState<Step>(1);
   const [loading,      setLoading]      = useState(false);
   const [sirenStatus,  setSirenStatus]  = useState<"idle"|"loading"|"valid"|"invalid">("idle");
   const [showDuplicateSirenModal, setShowDuplicateSirenModal] = useState(false);
+  const [usingSiret, setUsingSiret] = useState(false);
+  const [wantsSecondarySiret, setWantsSecondarySiret] = useState(false);
+  const [secondarySiret, setSecondarySiret] = useState("");
+  const [secondarySiretError, setSecondarySiretError] = useState("");
   const [seoOpen,      setSeoOpen]      = useState(false);
+  const [claimingPro,  setClaimingPro]  = useState<Professional | null>(null);
   const [sirenMsg,     setSirenMsg]     = useState("");
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -228,7 +259,6 @@ function InscriptionForm() {
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
   const [stripeSubscriptionId, setStripeSubscriptionId] = useState<string | null>(null);
   const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
-  const [stripeIntentMode, setStripeIntentMode] = useState<"payment" | "subscription">("subscription");
   const [preparingPayment, setPreparingPayment] = useState(false);
   const [errors,       setErrors]       = useState<Record<string, string>>({});
   const [hours,        setHours]        = useState<OpeningHours>(DEFAULT_HOURS);
@@ -236,7 +266,7 @@ function InscriptionForm() {
   const [services,     setServices]     = useState<string[]>(["", "", ""]);
 
   const [form, setForm] = useState({
-    companyName:"", siren:"", legalForm:"", category:"", subcategory:"",
+    companyName:"", siren:"", legalForm:"", vatNumber:"", category:"", subcategory:"",
     activityTitle:"", shortDescription:"", description:"",
     website:"", socialLink:"", facebookLink:"", tiktokLink:"", whatsapp:"",
     firstName:"", lastName:"", email:"", phone:"",
@@ -251,7 +281,66 @@ function InscriptionForm() {
     setErrors(p => ({ ...p, [f]: "" }));
   };
 
+  // Revendication de fiche : si l'URL contient ?claim=<id>, on précharge le
+  // formulaire avec les informations déjà présentes sur la fiche existante.
+  useEffect(() => {
+    const claimId = searchParams.get("claim");
+    if (!claimId) return;
+    const existing = getProfessionalById(claimId);
+    if (!existing) return;
+
+    setClaimingPro(existing);
+    setForm(p => ({
+      ...p,
+      companyName: existing.companyName || "",
+      siren: existing.siren || "",
+      legalForm: existing.legalForm || "",
+      vatNumber: existing.vatNumber || "",
+      category: existing.category || "",
+      subcategory: existing.subcategory || "",
+      activityTitle: existing.activityTitle || "",
+      shortDescription: existing.shortDescription || "",
+      description: existing.description || "",
+      website: existing.website || "",
+      socialLink: existing.socialLink || "",
+      facebookLink: existing.facebookLink || "",
+      tiktokLink: existing.tiktokLink || "",
+      whatsapp: existing.whatsapp || "",
+      email: existing.professionalEmail || existing.email || "",
+      phone: existing.phone || "",
+      address: existing.address || "",
+      city: existing.city || "",
+      postalCode: existing.postalCode || "",
+      logo: existing.logo || "",
+      banner: existing.banner || "",
+    }));
+    setPhotos(existing.photos || []);
+    setServices(existing.services && existing.services.length > 0 ? existing.services : ["", "", ""]);
+    setHours(existing.openingHours || DEFAULT_HOURS);
+    // Le SIREN de la fiche existante est déjà connu/valide : pas besoin de le revalider
+    setSirenStatus("valid");
+    setSirenMsg("SIREN de votre fiche existante — déjà vérifié.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const checkSiren = async () => {
+    if (usingSiret) {
+      // Mode SIRET (établissement secondaire) : même mécanisme de vérification
+      // de doublon que pour le SIREN, appliqué au numéro SIRET.
+      const clean = form.siren.replace(/\s/g, "");
+      if (clean.length !== 14) { setSirenStatus("invalid"); setSirenMsg("14 chiffres requis."); return; }
+      const existing = getProfessionals().find(p => p.siren.replace(/\s/g, "") === clean);
+      if (existing) {
+        setShowDuplicateSirenModal(true);
+        setSirenStatus("invalid");
+        setSirenMsg("Ce SIRET est déjà inscrit sur Prolocal-Landes.");
+        return;
+      }
+      setSirenStatus("valid");
+      setSirenMsg("SIRET valide — établissement secondaire.");
+      return;
+    }
+
     const clean = form.siren.replace(/\s/g, "");
     if (clean.length !== 9) { setSirenStatus("invalid"); setSirenMsg("9 chiffres requis."); return; }
 
@@ -270,15 +359,40 @@ function InscriptionForm() {
     else          { setSirenStatus("invalid"); setSirenMsg("SIREN invalide ou entreprise non active."); }
   };
 
+  // Vérifie le SIRET d'établissement secondaire saisi dans la modale "SIREN déjà inscrit".
+  // Applique exactement le même mécanisme de détection de doublon que le SIREN.
+  const checkSecondarySiret = () => {
+    const clean = secondarySiret.replace(/\s/g, "");
+    if (clean.length !== 14) { setSecondarySiretError("Le numéro SIRET doit contenir 14 chiffres."); return; }
+
+    const existing = getProfessionals().find(p => p.siren.replace(/\s/g, "") === clean);
+    if (existing) {
+      // Un SIRET déjà inscrit : la popup reste affichée avec le message de doublon.
+      setSecondarySiretError("Ce numéro SIRET est déjà inscrit sur Prolocal-Landes.");
+      return;
+    }
+
+    // SIRET valide et non déjà inscrit : remplace le champ "Numéro SIREN" par
+    // "Numéro SIRET" dans le formulaire principal, avec ce numéro.
+    setUsingSiret(true);
+    upd("siren", clean);
+    setSirenStatus("valid");
+    setSirenMsg("SIRET valide — établissement secondaire.");
+    setSecondarySiretError("");
+    setShowDuplicateSirenModal(false);
+  };
+
   const v1 = () => {
     const e: Record<string,string> = {};
     if (!form.companyName)                                                    e.companyName   = "Requis";
-    if (form.siren.replace(/\s/g,"").length !== 9)                           e.siren         = "9 chiffres requis";
-    if (sirenStatus !== "valid")                                              e.siren         = "Validez votre SIREN d'abord";
+    if (usingSiret ? form.siren.replace(/\s/g,"").length !== 14 : form.siren.replace(/\s/g,"").length !== 9)
+                                                                               e.siren         = usingSiret ? "14 chiffres requis" : "9 chiffres requis";
+    if (sirenStatus !== "valid")                                              e.siren         = usingSiret ? "Validez votre SIRET d'abord" : "Validez votre SIREN d'abord";
     if (!form.legalForm)                                                      e.legalForm     = "Requis";
     if (!form.category)                                                       e.category      = "Requis";
     if (!form.activityTitle.trim())                                           e.activityTitle = "Requis";
     if (form.activityTitle.trim().length > 60)                               e.activityTitle = "60 caractères maximum";
+    if (!form.shortDescription.trim())                                        e.shortDescription = "Requis";
     if (form.shortDescription.trim().length > 150)                           e.shortDescription = "150 caractères maximum";
     if (form.description.replace(/<[^>]*>/g,"").trim().length < 500)        e.description   = "500 caractères minimum";
     if (form.description.replace(/<[^>]*>/g,"").trim().length > 2500)       e.description   = "2 500 caractères maximum";
@@ -304,6 +418,8 @@ function InscriptionForm() {
   };
 
   const needsPayment = selectedPlan !== null && (selectedPlan !== "standard" || selectedOptions.length > 0);
+  // Verrouille les champs de facturation dès que la préparation du paiement Stripe a commencé
+  const billingLocked = preparingPayment || Boolean(stripeClientSecret) || stripePaid;
 
   // Prépare le paiement embarqué : crée l'abonnement (ou le PaymentIntent pour un
   // frais unique seul) côté serveur et récupère le client_secret pour Stripe Elements.
@@ -319,14 +435,20 @@ function InscriptionForm() {
           optionIds: selectedOptions,
           email: form.loginEmail || form.email,
           companyName: form.companyName,
+          billing: {
+            legalForm: form.legalForm,
+            siren: form.siren,
+            vatNumber: form.vatNumber,
+            address: form.address,
+            postalCode: form.postalCode,
+            city: form.city,
+          },
         }),
       });
       const data = await res.json();
       if (data.clientSecret) {
         setStripeClientSecret(data.clientSecret);
         setStripeCustomerId(data.customerId);
-        setStripeSubscriptionId(data.subscriptionId);
-        setStripeIntentMode(data.mode === "payment" ? "payment" : "subscription");
       } else {
         alert(data.error || "Erreur lors de la préparation du paiement.");
       }
@@ -337,20 +459,41 @@ function InscriptionForm() {
     }
   };
 
-  // Déclenché quand le formulaire Stripe Elements confirme le paiement avec succès
-  const handleStripeSuccess = () => {
-    setStripePaid(true);
-    goNextFromSequence(3);
-  };
-
-  // Prépare automatiquement le paiement embarqué dès l'arrivée sur l'étape
-  // paiement avec le choix "carte", tant qu'il n'est pas déjà prêt/payé.
-  useEffect(() => {
-    if (step === 3 && paymentChoice === "card" && needsPayment && !stripeClientSecret && !stripePaid && !preparingPayment) {
-      preparePayment();
+  // Déclenché quand la carte (SetupIntent) est confirmée avec succès : on crée
+  // alors, séparément, l'abonnement de la formule et celui des options
+  // complémentaires — ce sont des produits indépendants, jamais regroupés
+  // dans un même abonnement Stripe.
+  const handleStripeSuccess = async (paymentMethodId?: string) => {
+    if (!stripeCustomerId || !paymentMethodId) {
+      alert("Impossible de finaliser le paiement (moyen de paiement manquant).");
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, paymentChoice, needsPayment, stripeClientSecret, stripePaid]);
+    setPreparingPayment(true);
+    try {
+      const res = await fetch("/api/subscriptions/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: stripeCustomerId,
+          paymentMethodId,
+          planId: selectedPlan !== "standard" ? selectedPlan : undefined,
+          optionIds: selectedOptions,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || "Erreur lors de la finalisation du paiement.");
+        return;
+      }
+      setStripeSubscriptionId(data.planSubscriptionId || data.optionsSubscriptionId || null);
+      setStripePaid(true);
+      goNextFromSequence(3);
+    } catch {
+      alert("Erreur réseau lors de la finalisation du paiement.");
+    } finally {
+      setPreparingPayment(false);
+    }
+  };
 
   // Étapes dédiées aux options complémentaires sélectionnées (dans l'ordre pub → seo)
   const optionSteps = useMemo(
@@ -402,9 +545,10 @@ function InscriptionForm() {
     } catch { /* optionnel */ }
 
     const pro: Professional = {
-      id: generateId(),
+      id: claimingPro ? claimingPro.id : generateId(),
       companyName:   form.companyName,
       siren:         form.siren.replace(/\s/g,""),
+      vatNumber:     form.vatNumber || undefined,
       legalForm:     form.legalForm,
       category:      form.category,
       subcategory:   form.subcategory || undefined,
@@ -425,7 +569,8 @@ function InscriptionForm() {
       address:       form.address,
       city:          form.city,
       postalCode:    form.postalCode,
-      lat, lng,
+      lat: lat ?? claimingPro?.lat,
+      lng: lng ?? claimingPro?.lng,
       logo:    form.logo   || undefined,
       banner:  form.banner || undefined,
       photos:  photos.length > 0  ? photos  : undefined,
@@ -433,22 +578,35 @@ function InscriptionForm() {
       plan: selectedPlan,
       complementaryOptions: selectedOptions.length > 0 ? selectedOptions : undefined,
       paymentMethod: needsPayment ? paymentChoice : undefined,
-      stripeCustomerId: stripeCustomerId || undefined,
-      stripeSubscriptionId: stripeSubscriptionId || undefined,
+      stripeCustomerId: stripeCustomerId || claimingPro?.stripeCustomerId || undefined,
+      stripeSubscriptionId: stripeSubscriptionId || claimingPro?.stripeSubscriptionId || undefined,
       adBannerImage: selectedOptions.includes("pub") && pubImage ? pubImage : undefined,
       seoKeywords: selectedOptions.includes("seo") && seoKeywords.filter(k => k.trim()).length > 0
         ? seoKeywords.filter(k => k.trim())
         : undefined,
-      status: REQUIRE_VALIDATION ? "pending" : "active",
-      ...(REQUIRE_VALIDATION ? {} : { validatedAt: new Date().toISOString() }),
+      status: claimingPro ? claimingPro.status : (REQUIRE_VALIDATION ? "pending" : "active"),
+      ...(claimingPro ? {} : (REQUIRE_VALIDATION ? {} : { validatedAt: new Date().toISOString() })),
+      claimed: true,
       openingHours: hours,
-      createdAt: new Date().toISOString(),
+      createdAt: claimingPro ? claimingPro.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     saveProfessional(pro);
     setSession("pro", pro.id);
+
+    // Email de confirmation d'inscription (identifiants + délai de validation).
+    // Envoyé en arrière-plan, sans jamais bloquer ni faire échouer l'inscription
+    // si l'envoi échoue (ex: service email non configuré → mode démonstration).
+    fetch("/api/auth/send-registration-confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: pro.email, password: pro.password, companyName: pro.companyName }),
+    }).catch(() => {
+      // Silencieux : un échec d'envoi ne doit jamais bloquer l'inscription.
+    });
+
     setLoading(false);
-    router.push("/dashboard?welcome=1");
+    router.push(claimingPro ? "/dashboard?claimed=1" : "/dashboard?welcome=1");
   };
 
   const STEP_LABELS = ["Entreprise & Coordonnées", "Votre formule", "Options & Finalisation"];
@@ -463,20 +621,45 @@ function InscriptionForm() {
       {/* ── STEP 1 : Entreprise & Coordonnées ── */}
       {step === 1 && (
         <>
+          {claimingPro && (
+            <div className="card p-4 mb-4 border-2 border-amber-300 bg-amber-50 flex items-start gap-3">
+              <UserCheck className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-amber-800 text-sm">Vous revendiquez la fiche « {claimingPro.companyName} »</p>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  Vérifiez les informations préremplies, corrigez-les si besoins, complétez le formulaire, puis créer vos identifiants de connexion. Votre demande de revendication sera vérifiée sous 48h. Vous recevrez un email vous informant que votre fiche est validée et vous pourrez accéder à votre tableau de bord.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="card p-8 space-y-6">
-            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Informations de l&apos;entreprise</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Informations de l&apos;entreprise</h2>
+              <p className="text-xs text-red-500 font-medium">Ne mettez aucun mot ou texte entièrement en majuscule au risque de voir votre inscription refusée.</p>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-4">
-              {/* Ligne 1 (xl) : SIREN + bouton Vérifier / Nom entreprise / Forme juridique */}
+              {/* Ligne 1 (xl) : SIREN/SIRET + bouton Vérifier / Nom entreprise / Forme juridique */}
               <div className="xl:col-span-4">
-                <label className="label">Numéro SIREN *</label>
+                <label className="label">{usingSiret ? "Numéro SIRET *" : "Numéro SIREN *"}</label>
                 <div className="flex gap-2">
-                  <input value={form.siren} onChange={e => { upd("siren",e.target.value); setSirenStatus("idle"); }} className="input-field min-w-0 flex-1" placeholder="123 456 789" maxLength={11} />
-                  <button onClick={checkSiren} disabled={sirenStatus==="loading"} type="button"
-                    className="px-4 py-3 bg-landes-forest text-white rounded-lg text-sm font-medium hover:bg-landes-pine disabled:opacity-50 flex-shrink-0 whitespace-nowrap">
-                    {sirenStatus==="loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vérifier"}
-                  </button>
+                  <input
+                    value={form.siren}
+                    onChange={e => { upd("siren",e.target.value); setSirenStatus("idle"); }}
+                    disabled={!!claimingPro}
+                    className="input-field min-w-0 flex-1 disabled:bg-gray-50 disabled:text-gray-400"
+                    placeholder={usingSiret ? "123 456 789 00012" : "123 456 789"} maxLength={usingSiret ? 17 : 11}
+                  />
+                  {!claimingPro && (
+                    <button onClick={checkSiren} disabled={sirenStatus==="loading"} type="button"
+                      className="px-4 py-3 bg-landes-forest text-white rounded-lg text-sm font-medium hover:bg-landes-pine disabled:opacity-50 flex-shrink-0 whitespace-nowrap">
+                      {sirenStatus==="loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Vérifier"}
+                    </button>
+                  )}
                 </div>
+                {usingSiret && (
+                  <p className="text-xs text-landes-forest mt-1">Établissement secondaire — numéro SIRET.</p>
+                )}
                 {sirenStatus==="valid"   && <p className="text-green-600 text-xs mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3" />{sirenMsg}</p>}
                 {sirenStatus==="invalid" && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{sirenMsg}</p>}
                 {errors.siren && sirenStatus!=="invalid" && <p className="text-red-500 text-xs mt-1">{errors.siren}</p>}
@@ -497,8 +680,13 @@ function InscriptionForm() {
                 {errors.legalForm && <p className="text-red-500 text-xs mt-1">{errors.legalForm}</p>}
               </div>
 
-              {/* Ligne 2 (xl) : Catégorie / Sous-catégorie (verrouillée tant que la catégorie n'est pas choisie) */}
-              <div className="xl:col-span-6">
+              <div className="xl:col-span-4">
+                <label className="label">N° TVA intracommunautaire <span className="text-gray-400 font-normal text-xs">(recommandé)</span></label>
+                <input value={form.vatNumber} onChange={e => upd("vatNumber",e.target.value)} className="input-field" placeholder="FR12345678901" maxLength={20} />
+              </div>
+
+              {/* Ligne 2 (xl) : TVA / Catégorie / Sous-catégorie (verrouillée tant que la catégorie n'est pas choisie) */}
+              <div className="xl:col-span-4">
                 <label className="label">Catégorie *</label>
                 <select value={form.category} onChange={e => { upd("category",e.target.value); upd("subcategory",""); }} className="input-field">
                   <option value="">Sélectionner…</option>
@@ -507,8 +695,8 @@ function InscriptionForm() {
                 {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
               </div>
 
-              <div className="xl:col-span-6">
-                <label className="label">Sous-catégorie <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+              <div className="xl:col-span-4">
+                <label className="label">Sous-catégorie <span className="text-gray-400 font-normal text-xs">(recommandé)</span></label>
                 <select
                   value={form.subcategory}
                   onChange={e => upd("subcategory",e.target.value)}
@@ -547,7 +735,7 @@ function InscriptionForm() {
               </div>
 
               <div className="sm:col-span-2 xl:col-span-12">
-                <label className="label">Description courte <span className="text-gray-400 font-normal text-xs">(150 max.)</span></label>
+                <label className="label">Description courte * <span className="text-gray-400 font-normal text-xs">(150 max.)</span></label>
                 <textarea
                   value={form.shortDescription}
                   onChange={e => upd("shortDescription", e.target.value)}
@@ -634,7 +822,8 @@ function InscriptionForm() {
 
             {/* Coordonnées */}
             <div className="pt-2 border-t border-gray-100">
-              <h3 className="text-xl font-bold text-landes-pine mb-4 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Coordonnées &amp; Accès</h3>
+              <h3 className="text-xl font-bold text-landes-pine mb-1 bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Informations dirigeant - Coordonnées &amp; Accès</h3>
+              <p className="text-xs text-gray-500 mb-4">Votre nom et votre prénom ne seront pas visibles sur votre fiche.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Prénom *</label>
@@ -658,7 +847,7 @@ function InscriptionForm() {
                     {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                   </div>
                   <div>
-                    <label className="label">WhatsApp <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
+                    <label className="label">WhatsApp <span className="text-gray-400 font-normal text-xs">(recommandé)</span></label>
                     <input value={form.whatsapp} onChange={e => upd("whatsapp",e.target.value)} className="input-field" placeholder="06 12 34 56 78" />
                     <p className="text-xs text-gray-400 mt-1">Si renseigné, un bouton WhatsApp apparaîtra sur votre fiche.</p>
                   </div>
@@ -823,6 +1012,48 @@ function InscriptionForm() {
               </div>
             </div>
 
+            {/* Informations de facturation — préremplies depuis l'inscription, modifiables */}
+            <div>
+              <p className="label mb-2">Informations de facturation</p>
+              <div className="border border-gray-100 rounded-xl p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Nom de l&apos;entreprise</label>
+                    <input value={form.companyName} onChange={e => upd("companyName", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Forme juridique</label>
+                    <input value={form.legalForm} onChange={e => upd("legalForm", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Numéro SIREN</label>
+                    <input value={form.siren} onChange={e => upd("siren", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">N° TVA intracommunautaire <span className="text-gray-400">(recommandé)</span></label>
+                    <input value={form.vatNumber} onChange={e => upd("vatNumber", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" placeholder="FR12345678901" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-gray-500 mb-1 block">Adresse</label>
+                    <input value={form.address} onChange={e => upd("address", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Code postal</label>
+                    <input value={form.postalCode} onChange={e => upd("postalCode", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 mb-1 block">Ville</label>
+                    <input value={form.city} onChange={e => upd("city", e.target.value)} disabled={billingLocked} className="input-field text-sm disabled:bg-gray-50 disabled:text-gray-400" />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400">
+                  {billingLocked
+                    ? "Informations verrouillées — utilisées pour créer votre paiement Stripe."
+                    : "Ces informations apparaîtront sur vos factures Stripe. Vérifiez-les avant de continuer."}
+                </p>
+              </div>
+            </div>
+
             {/* Choix de la méthode de paiement */}
             <div>
               <p className="label mb-2">Méthode de paiement</p>
@@ -887,14 +1118,22 @@ function InscriptionForm() {
                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                     <p className="text-sm text-green-700 font-medium">Paiement confirmé — finalisation en cours…</p>
                   </div>
-                ) : preparingPayment || !stripeClientSecret ? (
+                ) : preparingPayment ? (
                   <div className="flex items-center gap-2 text-sm text-gray-500 py-4 justify-center">
                     <Loader2 className="w-4 h-4 animate-spin" /> Préparation du paiement sécurisé…
                   </div>
+                ) : !stripeClientSecret ? (
+                  <button
+                    type="button"
+                    onClick={() => preparePayment()}
+                    className="w-full flex items-center justify-center gap-2 bg-landes-forest text-white font-semibold py-3 rounded-xl hover:bg-landes-pine transition-colors"
+                  >
+                    Continuer vers le paiement sécurisé <ArrowRight className="w-4 h-4" />
+                  </button>
                 ) : (
                   <StripePaymentForm
                     clientSecret={stripeClientSecret}
-                    intentType={stripeIntentMode === "payment" ? "payment" : "payment"}
+                    intentType="setup"
                     submitLabel="Payer et activer mon abonnement"
                     onSuccess={handleStripeSuccess}
                   />
@@ -1087,21 +1326,21 @@ function InscriptionForm() {
             {/* Réseaux sociaux */}
             <div className="pb-5 border-b border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="label">Site internet <span className="text-gray-400 font-normal">(facultatif)</span></label>
+                <label className="label">Site internet <span className="text-gray-400 font-normal">(recommandé)</span></label>
                 <input value={form.website} onChange={e => upd("website", e.target.value)} className="input-field" placeholder="https://mon-site.fr" />
               </div>
               <div>
-                <label className="label">Instagram <span className="text-gray-400 font-normal">(facultatif)</span></label>
+                <label className="label">Instagram <span className="text-gray-400 font-normal">(recommandé)</span></label>
                 <input value={form.socialLink} onChange={e => upd("socialLink", e.target.value)} className="input-field" placeholder="https://instagram.com/monentreprise" />
               </div>
               {selectedPlan === "gold" && (
                 <>
                   <div>
-                    <label className="label">Facebook <span className="text-gray-400 font-normal">(facultatif)</span></label>
+                    <label className="label">Facebook <span className="text-gray-400 font-normal">(recommandé)</span></label>
                     <input value={form.facebookLink} onChange={e => upd("facebookLink", e.target.value)} className="input-field" placeholder="https://facebook.com/monentreprise" />
                   </div>
                   <div>
-                    <label className="label">TikTok <span className="text-gray-400 font-normal">(facultatif)</span></label>
+                    <label className="label">TikTok <span className="text-gray-400 font-normal">(recommandé)</span></label>
                     <input value={form.tiktokLink} onChange={e => upd("tiktokLink", e.target.value)} className="input-field" placeholder="https://tiktok.com/@monentreprise" />
                   </div>
                 </>
@@ -1154,7 +1393,7 @@ function InscriptionForm() {
                 <AlertCircle className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <p className="font-semibold text-landes-pine">SIREN déjà inscrit</p>
+                <p className="font-semibold text-landes-pine">{usingSiret ? "SIRET déjà inscrit" : "SIREN déjà inscrit"}</p>
                 <p className="text-sm text-gray-600 mt-1">
                   Vous souhaitez inscrire un établissement secondaire ?{" "}
                   <Link
@@ -1166,6 +1405,44 @@ function InscriptionForm() {
                 </p>
               </div>
             </div>
+
+            {/* Enregistrement direct via le numéro SIRET de l'établissement secondaire */}
+            <div className="border-t border-gray-100 pt-4 mb-4">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={wantsSecondarySiret}
+                  onChange={e => { setWantsSecondarySiret(e.target.checked); setSecondarySiretError(""); }}
+                  className="mt-0.5 w-4 h-4 accent-landes-forest cursor-pointer flex-shrink-0"
+                />
+                <span className="text-sm text-gray-700">
+                  Ou enregistrez directement le <strong>numéro SIRET</strong> de votre établissement secondaire
+                </span>
+              </label>
+
+              {wantsSecondarySiret && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    value={secondarySiret}
+                    onChange={e => { setSecondarySiret(e.target.value); setSecondarySiretError(""); }}
+                    className="input-field text-sm"
+                    placeholder="123 456 789 00012"
+                    maxLength={17}
+                  />
+                  {secondarySiretError && (
+                    <p className="text-red-500 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3 flex-shrink-0" />{secondarySiretError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={checkSecondarySiret}
+                    className="w-full flex items-center justify-center gap-2 bg-landes-forest text-white text-sm font-medium py-2.5 rounded-lg hover:bg-landes-pine transition-colors"
+                  >
+                    Vérifier ce SIRET
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => setShowDuplicateSirenModal(false)}

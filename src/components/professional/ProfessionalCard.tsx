@@ -7,6 +7,7 @@ import StarDisplay from "@/components/ui/StarDisplay";
 import { getProRating } from "@/lib/reviewUtils";
 import { getBanner } from "@/lib/defaultBanners";
 import { rehydrateAsync } from "@/lib/storage";
+import { buildProfileUrl } from "@/lib/profileUrl";
 
 interface ProfessionalCardProps {
   pro: Professional;
@@ -33,7 +34,7 @@ export default function ProfessionalCard({ pro: propPro }: ProfessionalCardProps
 
   return (
     <Link
-      href={`/annuaire/${pro.id}`}
+      href={buildProfileUrl(pro)}
       className={`card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 block group overflow-hidden ${
         pro.plan === "gold" ? "ring-2 ring-amber-400/70" : ""
       }`}

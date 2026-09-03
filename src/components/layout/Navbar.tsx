@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Menu, X, MapPin, LogIn, UserPlus, LogOut, User, ChevronDown, LayoutDashboard, Grid3X3 } from "lucide-react";
 import { getSession, clearSession, getProfessionalById } from "@/lib/storage";
+import { categorySlug, subcategorySlugForUrl } from "@/lib/profileUrl";
 import { SUBCATEGORIES } from "@/types";
 
 interface ProSession {
@@ -148,7 +149,7 @@ export default function Navbar() {
                               {subs.map(sub => (
                                 <li key={sub}>
                                   <Link
-                                    href={`/annuaire?category=${encodeURIComponent(cat.label)}&q=${encodeURIComponent(sub)}`}
+                                    href={`/categories/${categorySlug(cat.label)}/${subcategorySlugForUrl(sub)}`}
                                     onClick={() => setCatOpen(false)}
                                     className="block text-xs text-gray-500 hover:text-landes-forest py-0.5 transition-colors leading-snug"
                                   >
@@ -279,7 +280,7 @@ export default function Navbar() {
                           {subs.map(sub => (
                             <Link
                               key={sub}
-                              href={`/annuaire?category=${encodeURIComponent(cat.label)}&q=${encodeURIComponent(sub)}`}
+                              href={`/categories/${categorySlug(cat.label)}/${subcategorySlugForUrl(sub)}`}
                               onClick={() => { setOpen(false); setMobileCatOpen(false); setMobileSubOpen(null); }}
                               className="block py-1.5 px-2 text-xs text-gray-500 hover:text-landes-forest hover:bg-landes-forest/5 rounded-lg transition-colors leading-snug"
                             >

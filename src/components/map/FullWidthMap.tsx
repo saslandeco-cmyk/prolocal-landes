@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { MapPin } from "lucide-react";
 import { getProfessionals } from "@/lib/storage";
+import { buildProfileUrl } from "@/lib/profileUrl";
 import { Professional } from "@/types";
 
 const MultiMap = dynamic(() => import("@/components/map/MultiMap"), { ssr: false });
@@ -91,7 +92,10 @@ export default function FullWidthMap() {
             {loaded ? (
               <MultiMap
                 professionals={pros}
-                onSelectPro={id => router.push(`/annuaire/${id}`)}
+                onSelectPro={id => {
+                  const p = pros.find(pr => pr.id === id);
+                  router.push(p ? buildProfileUrl(p) : `/annuaire/${id}`);
+                }}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gray-100">

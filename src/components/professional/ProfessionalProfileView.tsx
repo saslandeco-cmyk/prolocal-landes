@@ -1,12 +1,12 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
   MapPin, Phone, Globe, Mail, ArrowLeft, Clock,
   Building2, Shield, ExternalLink, Share2, CheckCircle,
-  X, Images, ChevronLeft, ChevronRight, MessageCircle, Send, Loader2, Award,
+  X, Images, ChevronLeft, ChevronRight, MessageCircle, Send, Loader2, Award, UserCheck,
 } from "lucide-react";
 import { getProfessionalById, recordVisit, rehydrateAsync } from "@/lib/storage";
 import { Professional, formatDayHours } from "@/types";
@@ -199,9 +199,8 @@ function PhotoGallery({ photos, companyName }: { photos: string[]; companyName: 
   );
 }
 
-export default function ProfessionalProfilePage() {
-  const { id }   = useParams<{ id: string }>();
-  const [pro, setPro]       = useState<Professional | null>(null);
+export default function ProfessionalProfileView({ id, initialData }: { id: string; initialData?: Professional | null }) {
+  const [pro, setPro]       = useState<Professional | null>(initialData ?? null);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showQuestion, setShowQuestion] = useState(false);
@@ -211,37 +210,47 @@ export default function ProfessionalProfilePage() {
   const [questionLoading, setQuestionLoading] = useState(false);
 
   useEffect(() => {
-    const d = getProfessionalById(id);
-    if (!d) { setNotFound(true); return; }
-    if (d.status === "pending" || d.status === "rejected") { setNotFound(true); return; }
-    // Charge d'abord sans images pour afficher vite
-    setPro(d);
-    // Puis injecte les images depuis IndexedDB
-    rehydrateAsync(d).then(full => setPro(full));
+    // Si le serveur a déjà fourni les données réelles (fiche présente en
+    // base de données — étape 3 de la migration), pas besoin de recharger
+    // depuis localStorage : on évite un flash de contenu et on garde le
+    // rendu déjà indexable par Google tel quel. On rehydrate quand même
+    // les images potentiellement absentes du JSON (rare, cas legacy).
+    if (initialData) {
+      rehydrateAsync(initialData).then(full => setPro(full));
+    } else {
+      const d = getProfessionalById(id);
+      if (!d) { setNotFound(true); return; }
+      if (d.status === "pending" || d.status === "rejected") { setNotFound(true); return; }
+      // Charge d'abord sans images pour afficher vite
+      setPro(d);
+      // Puis injecte les images depuis IndexedDB
+      rehydrateAsync(d).then(full => setPro(full));
+    }
 
     // Enregistrer la visite pour les pros Gold
-    if (d.plan === "gold" && d.status === "active") {
+    const forVisit = initialData || getProfessionalById(id);
+    if (forVisit && forVisit.plan === "gold" && forVisit.status === "active") {
       const params = new URLSearchParams(window.location.search);
       const ref = document.referrer;
       let source: "direct" | "search" | "category" | "map" = "direct";
       if (params.get("from") === "map")      source = "map";
       else if (params.get("from") === "cat") source = "category";
       else if (ref.includes("/annuaire"))    source = "search";
-      recordVisit(d.id, source);
+      recordVisit(forVisit.id, source);
     }
 
     // Si le pro n'a pas de coordonnées, tenter de les obtenir et sauvegarder
-    if (!d.lat || !d.lng) {
+    if (forVisit && (!forVisit.lat || !forVisit.lng)) {
       import("@/lib/geocode").then(({ geocodeAddress }) =>
-        geocodeAddress(d.address, d.city, d.postalCode)
+        geocodeAddress(forVisit.address, forVisit.city, forVisit.postalCode)
       ).then(coords => {
         if (!coords) return;
-        const updated = { ...d, lat: coords.lat, lng: coords.lng, updatedAt: new Date().toISOString() };
+        const updated = { ...forVisit, lat: coords.lat, lng: coords.lng, updatedAt: new Date().toISOString() };
         import("@/lib/storage").then(({ saveProfessional }) => saveProfessional(updated));
         setPro(updated);
       }).catch(() => {});
     }
-  }, [id]);
+  }, [id, initialData]);
 
   if (notFound) return (
     <div className="max-w-3xl mx-auto px-4 py-20 text-center">
@@ -406,24 +415,65 @@ export default function ProfessionalProfilePage() {
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* About */}
-            <div className="card p-6">
-              <p className="font-bold text-landes-pine text-lg mb-3 flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-landes-sage" /> À propos
-              </p>
-              <div
-                className="pro-description leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: pro.description }}
-              />
+            {/* About — si la description est vide (ex: import CSV sans description), un texte de
+                remplacement explique la situation dans la zone "À propos" elle-même ; la carte
+                "Revendiquer cette fiche" (si non revendiquée) s'affiche juste en dessous. */}
+            {(() => {
+              const isDescriptionEmpty = !pro.description || pro.description.replace(/<[^>]*>/g, "").trim().length === 0;
+              if (isDescriptionEmpty) {
+                return (
+                  <>
+                    <div className="card p-6">
+                      <p className="font-bold text-landes-pine text-lg mb-3 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-landes-sage" /> À propos
+                      </p>
+                      <p className="pro-description leading-relaxed text-gray-600">
+                        Cette fiche présente les informations disponibles sur cette entreprise. Elle n&apos;a pas encore été revendiquée par son propriétaire mais vous pouvez tout de même le contacter.
+                      </p>
+                    </div>
+                    {!pro.claimed && (
+                      <div className="card p-6 border border-amber-200 bg-amber-50/40 space-y-2">
+                        <p className="font-semibold text-landes-pine text-sm flex items-center gap-2">
+                          <UserCheck className="w-4 h-4 text-amber-600 flex-shrink-0" /> Vous êtes le dirigeant de cette entreprise ?
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Revendiquer cette fiche vous permet de vérifier et de mettre à jour vos informations, afin que les visiteurs disposent de renseignements fiables et actuels.
+                        </p>
+                        <Link
+                          href={`/inscription?claim=${pro.id}`}
+                          className="flex items-center justify-center gap-2 w-full bg-white text-amber-700 font-semibold py-2.5 px-4 rounded-xl border-2 border-amber-300 hover:bg-amber-100 transition-colors text-sm"
+                        >
+                          <UserCheck className="w-4 h-4" /> Revendiquer cette fiche
+                        </Link>
+                      </div>
+                    )}
+                  </>
+                );
+              }
+              return (
+                <div className="card p-6">
+                  <p className="font-bold text-landes-pine text-lg mb-3 flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-landes-sage" /> À propos
+                  </p>
+                  <div
+                    className="pro-description leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: pro.description }}
+                  />
+                </div>
+              );
+            })()}
+
+            {/* Laisser un avis — sur écran de PC, juste sous "À propos" pour éviter tout vide.
+                Sur mobile, cette instance est masquée : le formulaire s'affiche alors tout en
+                bas de la page (voir plus bas), juste avant le footer. */}
+            <div className="hidden lg:block">
+              <ReviewSection proId={pro.id} companyName={pro.companyName} formOnly />
             </div>
 
             {/* ── Galerie photos ── */}
             {pro.photos && pro.photos.length > 0 && (
               <PhotoGallery photos={pro.photos} companyName={pro.companyName} />
             )}
-
-            {/* ── Laisser un avis (colonne gauche, même largeur) ── */}
-            <ReviewSection proId={pro.id} companyName={pro.companyName} formOnly />
 
           </div>
 
@@ -598,6 +648,13 @@ export default function ProfessionalProfilePage() {
             {/* Avis clients */}
             <ReviewSection proId={pro.id} companyName={pro.companyName} carouselOnly />
 
+          </div>
+
+          {/* Laisser un avis — visible uniquement sur mobile, en tout dernier (juste avant
+              le footer) grâce à sa position en fin de grille. Sur desktop, une autre instance
+              de ce même formulaire est affichée juste sous "À propos" (voir plus haut). */}
+          <div className="lg:hidden">
+            <ReviewSection proId={pro.id} companyName={pro.companyName} formOnly />
           </div>
         </div>
       </div>

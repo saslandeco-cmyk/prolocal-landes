@@ -1,11 +1,12 @@
 "use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Search, MapPin, ArrowRight,
   Trees, Shield, TrendingUp,
 } from "lucide-react";
 import { PLANS, CATEGORIES } from "@/types";
-import HeroImage from "@/components/ui/HeroImage";
+import HeroPubSlideshow from "@/components/ui/HeroPubSlideshow";
 import SearchBar from "@/components/professional/SearchBar";
 import FeaturedProfessionals from "@/components/professional/FeaturedProfessionals";
 import FullWidthMap from "@/components/map/FullWidthMap";
@@ -52,6 +53,22 @@ const FEATURED_CATEGORIES = CATEGORIES.map(name => ({
 }));
 
 export default function HomePage() {
+  const [optionsCatalog, setOptionsCatalog] = useState<Record<string, { unitAmount: number; cadence: string }>>({});
+
+  useEffect(() => {
+    fetch("/api/db/options")
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.options) setOptionsCatalog(data.options); })
+      .catch(() => {});
+  }, []);
+
+  const priceOf = (id: string, fallbackAmount: number, fallbackCadence: "month" | "once") => {
+    const opt = optionsCatalog[id];
+    const amount = opt ? opt.unitAmount / 100 : fallbackAmount;
+    const unit = (opt ? opt.cadence : fallbackCadence) === "once" ? "(frais uniques)" : "/mois";
+    return { amount: amount.toFixed(0), unit };
+  };
+
   return (
     <div className="bg-landes-cream">
 
@@ -84,9 +101,9 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* RIGHT — photo hero */}
+            {/* RIGHT — diaporama des encarts publicitaires ciblés */}
             <div className="hidden lg:block">
-              <HeroImage />
+              <HeroPubSlideshow />
             </div>
           </div>
 
@@ -178,7 +195,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10 sm:mb-12">
             <p className="text-sm font-semibold text-landes-sage uppercase tracking-wider mb-1">Pourquoi nous choisir</p>
-            <h2 className="section-title">L&apos;annuaire fait pour les Landes</h2>
+            <h2 className="font-bold text-landes-pine text-base sm:text-lg mb-2">Une plateforme créée par un entrepreneur landais, pour les professionnels landais, avec une ambition simple : faire vivre, valoriser et développer l&apos;économie locale.</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
             {[
@@ -285,14 +302,14 @@ export default function HomePage() {
         {/* Options complémentaires */}
         <div className="text-center mt-16 sm:mt-20 mb-10 sm:mb-12">
           <h2 className="section-title">Options complémentaires</h2>
-          <p className="text-gray-500 mt-2">Vous pourrez choisir ses options lors de l&apos;enregistrement de votre entreprise. Sans engagement.</p>
+          <p className="text-gray-500 mt-2">Vous pourrez choisir ces options lors de l&apos;enregistrement de votre entreprise. Sans engagement.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
           <div className="card p-6 sm:p-8 border-2 border-gray-100 flex flex-col">
             <h3 className="text-xl font-bold mb-1 text-landes-forest">Encart publicitaire ciblé</h3>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-bold text-gray-900">50€</span>
-              <span className="text-gray-400">/mois</span>
+              <span className="text-4xl font-bold text-gray-900">{priceOf("pub", 25, "month").amount}€</span>
+              <span className="text-gray-400">{priceOf("pub", 25, "month").unit}</span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">
               Afficher une bannière publicitaire de votre fiche sur la page de la catégorie pendant 1 mois.
@@ -301,8 +318,8 @@ export default function HomePage() {
           <div className="card p-6 sm:p-8 border-2 border-gray-100 flex flex-col">
             <h3 className="text-xl font-bold mb-1 text-landes-forest">Service de rédaction SEO</h3>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-bold text-gray-900">50€</span>
-              <span className="text-gray-400">(frais uniques)</span>
+              <span className="text-4xl font-bold text-gray-900">{priceOf("seo", 30, "once").amount}€</span>
+              <span className="text-gray-400">{priceOf("seo", 30, "once").unit}</span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">
               Rédiger une description optimisée pour les moteurs de recherche.
@@ -311,8 +328,8 @@ export default function HomePage() {
           <div className="card p-6 sm:p-8 border-2 border-gray-100 flex flex-col">
             <h3 className="text-xl font-bold mb-1 text-landes-forest">Gestion prospects/clients</h3>
             <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-bold text-gray-900">30€</span>
-              <span className="text-gray-400">/mois</span>
+              <span className="text-4xl font-bold text-gray-900">{priceOf("crm", 9, "month").amount}€</span>
+              <span className="text-gray-400">{priceOf("crm", 9, "month").unit}</span>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed">
               Utiliser un éditeur de devis et de facturation compatible avec la facturation électronique et un outil de gestion des prospects et des clients.

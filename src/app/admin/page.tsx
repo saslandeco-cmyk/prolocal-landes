@@ -1,13 +1,15 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare, Info, Download, Upload, Settings2 } from "lucide-react";
-import { checkAdminCredentials, setSession, getSession, clearSession, getProfessionals, getProfessionalsWithImages, saveProfessional, deleteProfessional, getReviews, saveReview, deleteReview, generateId } from "@/lib/storage";
-import { Professional, CATEGORIES, PLANS, StatusType, Review } from "@/types";
+import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare, Info, Download, Upload, Settings2, UserX, UserCheck, Database, CreditCard, Plus } from "lucide-react";
+import { checkAdminCredentials, setSession, getSession, clearSession, getProfessionals, getProfessionalsWithImages, saveProfessional, deleteProfessional, getReviews, saveReview, deleteReview, generateId, getHeroSlideshowIds, saveHeroSlideshowIds } from "@/lib/storage";
+import { Professional, CATEGORIES, SUBCATEGORIES, PLANS, StatusType, Review } from "@/types";
 import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
-import HeroImage from "@/components/ui/HeroImage";
+import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
+import RichTextEditor from "@/components/ui/RichTextEditor";
 import { REQUIRE_VALIDATION } from "@/lib/config";
+import type { OpeningHours } from "@/types";
 
 // Bouton "Enregistrer" pour la photo hero — lit l'état depuis le storage
 // Colonnes disponibles pour l'export / import CSV — sélectionnables individuellement
@@ -29,6 +31,7 @@ const COLUMN_DEFS: { label: string; getValue: (p: Professional) => string }[] = 
   { label: "Lng",                   getValue: p => (p.lng ?? "").toString() },
   { label: "Formule",               getValue: p => p.plan },
   { label: "Statut",                getValue: p => p.status },
+  { label: "Revendiquée",           getValue: p => (p as any).claimed ? "Oui" : "Non" },
   { label: "Site web",              getValue: p => p.website ?? "" },
   { label: "Service 1",             getValue: p => p.services?.[0] ?? "" },
   { label: "Service 2",             getValue: p => p.services?.[1] ?? "" },
@@ -40,6 +43,402 @@ const COLUMN_DEFS: { label: string; getValue: (p: Professional) => string }[] = 
 const ALL_COLUMN_LABELS = COLUMN_DEFS.map(c => c.label);
 
 // Bouton "Enregistrer" pour la photo hero — lit l'état depuis le storage
+// Petit composant d'upload d'image (base64) pour la modale d'édition complète
+function AdminImageUploader({ label, value, onChange, aspect = "square" }: {
+  label: string; value?: string; onChange: (v: string) => void; aspect?: "square" | "banner";
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const handleFile = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <div
+        onClick={() => inputRef.current?.click()}
+        className={`relative border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-landes-sage transition-colors overflow-hidden bg-gray-50 ${aspect === "banner" ? "h-28" : "h-28 w-28"}`}
+      >
+        {value ? (
+          <img src={value} alt={label} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Cliquer pour choisir</div>
+        )}
+        {value && (
+          <button type="button" onClick={e => { e.stopPropagation(); onChange(""); }}
+            className="absolute top-1 right-1 bg-white/90 rounded-full p-1 hover:bg-white">
+            <X className="w-3 h-3 text-gray-600" />
+          </button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+        onChange={e => handleFile(e.target.files?.[0])} />
+    </div>
+  );
+}
+
+interface AdminOption {
+  id: string;
+  name: string;
+  description: string | null;
+  unitAmount: number;
+  cadence: "month" | "once";
+  stripeProductId: string;
+  sortOrder: number;
+}
+
+// Gestion complète (ajout / modification / suppression) du catalogue des
+// options complémentaires — pilote à la fois l'affichage sur le site ET
+// les montants réellement facturés via Stripe (voir src/lib/db/options.ts).
+function OptionsManager() {
+  const [options, setOptions] = useState<AdminOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const emptyForm = { id: "", name: "", description: "", unitAmount: "", cadence: "month" as "month" | "once" };
+  const [form, setForm] = useState(emptyForm);
+
+  const load = async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch("/api/db/options?admin=1");
+      const data = await res.json();
+      if (data.error) { setLoadError(data.error); return; }
+      setOptions((data.options || []).sort((a: AdminOption, b: AdminOption) => a.sortOrder - b.sortOrder));
+    } catch {
+      setLoadError("Impossible de charger le catalogue. Vérifiez que la base de données est configurée (POSTGRES_URL).");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (opt: AdminOption) => {
+    setEditingId(opt.id);
+    setShowAddForm(false);
+    setForm({
+      id: opt.id,
+      name: opt.name,
+      description: opt.description || "",
+      unitAmount: (opt.unitAmount / 100).toString(),
+      cadence: opt.cadence,
+    });
+  };
+
+  const startAdd = () => {
+    setShowAddForm(true);
+    setEditingId(null);
+    setForm(emptyForm);
+  };
+
+  const cancelForm = () => {
+    setEditingId(null);
+    setShowAddForm(false);
+    setForm(emptyForm);
+  };
+
+  const handleSave = async () => {
+    const idSlug = form.id.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    const amount = parseFloat(form.unitAmount.replace(",", "."));
+
+    if (!idSlug || !form.name.trim() || isNaN(amount) || amount <= 0) {
+      alert("Merci de renseigner un identifiant, un nom et un prix valide (supérieur à 0).");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/db/options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: idSlug,
+          name: form.name.trim(),
+          description: form.description.trim(),
+          unitAmount: Math.round(amount * 100),
+          cadence: form.cadence,
+          stripeProductId: `prolocal_opt_${idSlug}`,
+          sortOrder: editingId
+            ? options.find(o => o.id === editingId)?.sortOrder ?? 0
+            : options.length,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      await load();
+      cancelForm();
+    } catch {
+      alert("Erreur réseau lors de l'enregistrement.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Supprimer définitivement cette option ? Elle ne sera plus proposée aux professionnels (les abonnements déjà en cours ne sont pas résiliés).")) return;
+    try {
+      const res = await fetch(`/api/db/options/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      await load();
+    } catch {
+      alert("Erreur réseau lors de la suppression.");
+    }
+  };
+
+  const renderForm = () => (
+    <div className="border-2 border-landes-forest/30 bg-landes-forest/5 rounded-xl p-4 space-y-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Identifiant technique {editingId && <span className="text-gray-400">(non modifiable)</span>}</label>
+          <input
+            value={form.id}
+            onChange={e => setForm(f => ({ ...f, id: e.target.value }))}
+            disabled={!!editingId}
+            placeholder="ex: newsletter"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Nom affiché</label>
+          <input
+            value={form.name}
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="ex: Newsletter mensuelle"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Prix (€)</label>
+          <input
+            value={form.unitAmount}
+            onChange={e => setForm(f => ({ ...f, unitAmount: e.target.value }))}
+            placeholder="ex: 15"
+            inputMode="decimal"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Cadence</label>
+          <select
+            value={form.cadence}
+            onChange={e => setForm(f => ({ ...f, cadence: e.target.value as "month" | "once" }))}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+          >
+            <option value="month">Mensuel (abonnement)</option>
+            <option value="once">Frais unique</option>
+          </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label className="text-xs font-medium text-gray-500 mb-1 block">Description (affichée aux professionnels)</label>
+          <textarea
+            value={form.description}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            rows={2}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          {saving ? "Enregistrement…" : "Enregistrer"}
+        </button>
+        <button onClick={cancelForm} className="btn-secondary px-4 py-2 text-sm">Annuler</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-start justify-between mb-1 flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-landes-pine">Options complémentaires</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Ajoutez, modifiez ou supprimez les options proposées aux professionnels (page d&apos;accueil,
+            inscription, tableau de bord). Les prix modifiés ici s&apos;appliquent immédiatement au
+            paiement réel via Stripe.
+          </p>
+        </div>
+        {!showAddForm && !editingId && (
+          <button onClick={startAdd} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm flex-shrink-0">
+            <Plus className="w-4 h-4" /> Ajouter une option
+          </button>
+        )}
+      </div>
+
+      <div className="mt-5">
+        {showAddForm && renderForm()}
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-8 justify-center">
+            <Loader2 className="w-5 h-5 animate-spin" /> Chargement du catalogue…
+          </div>
+        ) : loadError ? (
+          <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-3">{loadError}</p>
+        ) : options.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">
+            Aucune option personnalisée en base — le site utilise actuellement le catalogue par défaut.
+            Ajoutez une option ci-dessus pour commencer à le personnaliser.
+          </p>
+        ) : (
+          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50">
+            {options.map(opt => (
+              <div key={opt.id}>
+                {editingId === opt.id ? (
+                  <div className="p-3">{renderForm()}</div>
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-gray-800 text-sm">{opt.name}</p>
+                        <span className="text-xs text-gray-400 font-mono">({opt.id})</span>
+                      </div>
+                      {opt.description && <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>}
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-landes-pine text-sm">{(opt.unitAmount / 100).toFixed(0)}€</p>
+                      <p className="text-[11px] text-gray-400">{opt.cadence === "once" ? "frais unique" : "/mois"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button onClick={() => startEdit(opt)} className="p-1.5 rounded-lg text-gray-400 hover:text-landes-forest hover:bg-landes-forest/5">
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(opt.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Gestion manuelle du diaporama hero (professionnels avec l'option
+// "Encart publicitaire ciblé"), sélection et ordre entièrement contrôlés
+// par l'administrateur.
+function HeroSlideshowManager() {
+  const [allPros, setAllPros] = useState<Professional[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setAllPros(getProfessionals().filter((p: Professional) => p.status === "active"));
+    setSelectedIds(getHeroSlideshowIds());
+  }, []);
+
+  const toggle = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const move = (id: string, dir: -1 | 1) => {
+    setSelectedIds(prev => {
+      const idx = prev.indexOf(id);
+      const next = [...prev];
+      const swapIdx = idx + dir;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    saveHeroSlideshowIds(selectedIds);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const filtered = allPros.filter(p =>
+    !search.trim() || p.companyName.toLowerCase().includes(search.toLowerCase())
+  );
+  const selectedPros = selectedIds.map(id => allPros.find(p => p.id === id)).filter(Boolean) as Professional[];
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-start justify-between mb-1 flex-wrap gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-landes-pine">Diaporama Hero — Encarts publicitaires ciblés</h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Ce diaporama s&apos;affiche dans la section d&apos;accueil du site, à droite du texte principal.
+            Par défaut, il affiche automatiquement toutes les fiches actives ayant l&apos;option
+            complémentaire &quot;Encart publicitaire ciblé&quot; active (repérées ci-dessous par le badge
+            &quot;Option Pub&quot;). Cochez des fiches ci-dessous pour prendre la main manuellement sur la
+            sélection et l&apos;ordre d&apos;affichage.
+          </p>
+        </div>
+        <button onClick={handleSave} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm flex-shrink-0">
+          {saved ? <CheckCircle className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saved ? "Enregistré" : "Enregistrer"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
+        {/* Colonne gauche : sélection */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Toutes les fiches actives</p>
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une entreprise…" className="input-field pl-10 text-sm" />
+          </div>
+          <div className="border border-gray-100 rounded-xl max-h-80 overflow-y-auto divide-y divide-gray-50">
+            {filtered.map(p => {
+              const hasPubOption = (p.complementaryOptions || []).includes("pub");
+              const isSelected = selectedIds.includes(p.id);
+              return (
+                <label key={p.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 cursor-pointer">
+                  <input type="checkbox" checked={isSelected} onChange={() => toggle(p.id)} className="w-4 h-4 accent-landes-forest flex-shrink-0" />
+                  <span className="flex-1 text-sm text-gray-700 truncate">{p.companyName}</span>
+                  {hasPubOption && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full flex-shrink-0">Option Pub</span>
+                  )}
+                </label>
+              );
+            })}
+            {filtered.length === 0 && <p className="text-sm text-gray-400 text-center py-6">Aucun résultat.</p>}
+          </div>
+        </div>
+
+        {/* Colonne droite : ordre du diaporama */}
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            Ordre du diaporama ({selectedPros.length})
+          </p>
+          {selectedPros.length === 0 ? (
+            <p className="text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl p-6 text-center">
+              Aucune fiche sélectionnée pour le moment.
+            </p>
+          ) : (
+            <div className="border border-gray-100 rounded-xl divide-y divide-gray-50">
+              {selectedPros.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-2 px-3 py-2.5">
+                  <span className="text-xs text-gray-400 w-5 flex-shrink-0">{i + 1}.</span>
+                  <span className="flex-1 text-sm text-gray-700 truncate">{p.companyName}</span>
+                  <button onClick={() => move(p.id, -1)} disabled={i === 0} className="text-gray-400 hover:text-landes-forest disabled:opacity-30 text-xs px-1.5">▲</button>
+                  <button onClick={() => move(p.id, 1)} disabled={i === selectedPros.length - 1} className="text-gray-400 hover:text-landes-forest disabled:opacity-30 text-xs px-1.5">▼</button>
+                  <button onClick={() => toggle(p.id)} className="text-red-400 hover:text-red-600 text-xs px-1.5">✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HeroSaveButton() {
   const [saved, setSaved] = useState(false);
   const [hasImage, setHasImage] = useState(false);
@@ -86,13 +485,19 @@ export default function AdminPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showColumnsModal, setShowColumnsModal] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(ALL_COLUMN_LABELS));
-  const [adminSection, setAdminSection] = useState<"pros" | "reviews" | "site">("pros");
+  const [migrating, setMigrating] = useState(false);
+  const [migrationSummary, setMigrationSummary] = useState<string | null>(null);
+  const [adminSection, setAdminSection] = useState<"pros" | "reviews" | "site" | "options">("pros");
   const [editReview, setEditReview] = useState<Review | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusType | "">("");
+  const [filterClaimed, setFilterClaimed] = useState<"" | "claimed" | "unclaimed">("");
   const [selectedPro, setSelectedPro] = useState<Professional | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState<Partial<Professional>>({});
+  const [showFullEditModal, setShowFullEditModal] = useState(false);
+  const [fullEditForm, setFullEditForm] = useState<Partial<Professional>>({});
+  const [savingFullEdit, setSavingFullEdit] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<"" | "suspend" | "delete">("");
@@ -148,6 +553,51 @@ export default function AdminPage() {
     if (selectedPro?.id === id) setSelectedPro(updated);
   };
 
+  // ── Migration en masse vers la base de données (étape 4) ──
+  // Pousse en une fois tous les professionnels et avis actuellement en
+  // localStorage vers la base Postgres, via les routes déjà utilisées par
+  // la double-écriture automatique (étape 2). Sûr à relancer plusieurs
+  // fois (upsert) — utile pour rattraper les fiches créées avant
+  // l'activation de la base, ou après une longue coupure.
+  const handleMigrateToDb = async () => {
+    setMigrating(true);
+    setMigrationSummary(null);
+    try {
+      const allPros = getProfessionals();
+      const allReviews = getReviews();
+      let proOk = 0, proFail = 0, reviewOk = 0, reviewFail = 0;
+
+      for (const p of allPros) {
+        try {
+          const res = await fetch("/api/db/professionals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(p),
+          });
+          if (res.ok) proOk++; else proFail++;
+        } catch { proFail++; }
+      }
+
+      for (const r of allReviews) {
+        try {
+          const res = await fetch("/api/db/reviews", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(r),
+          });
+          if (res.ok) reviewOk++; else reviewFail++;
+        } catch { reviewFail++; }
+      }
+
+      setMigrationSummary(
+        `✅ ${proOk}/${allPros.length} professionnels migrés, ${reviewOk}/${allReviews.length} avis migrés.` +
+        (proFail || reviewFail ? ` ⚠️ ${proFail + reviewFail} échec(s) — vérifiez que la base est bien configurée (POSTGRES_URL).` : "")
+      );
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   const handleDelete = (id: string) => {
     if (!confirm("Supprimer définitivement cette fiche ?")) return;
     deleteProfessional(id);
@@ -167,11 +617,31 @@ export default function AdminPage() {
     setSaving(false);
   };
 
+  const openFullEditModal = (p: Professional) => {
+    setFullEditForm({ ...p });
+    setShowFullEditModal(true);
+  };
+
+  const updFull = (field: string, value: any) => setFullEditForm(prev => ({ ...prev, [field]: value }));
+
+  const handleSaveFullEdit = async () => {
+    if (!selectedPro) return;
+    setSavingFullEdit(true);
+    await new Promise(r => setTimeout(r, 400));
+    const updated = { ...selectedPro, ...fullEditForm, updatedAt: new Date().toISOString() } as Professional;
+    saveProfessional(updated);
+    refresh();
+    setSelectedPro(updated);
+    setSavingFullEdit(false);
+    setShowFullEditModal(false);
+  };
+
   const filtered = pros.filter((p) => {
     const q = search.toLowerCase();
     const matchSearch = !search || p.companyName.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.city.toLowerCase().includes(q);
     const matchStatus = !filterStatus || p.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchClaimed = !filterClaimed || (filterClaimed === "claimed" ? !!(p as any).claimed : !(p as any).claimed);
+    return matchSearch && matchStatus && matchClaimed;
   });
 
   const stats = {
@@ -179,6 +649,8 @@ export default function AdminPage() {
     active: pros.filter((p) => p.status === "active").length,
     pending: pros.filter((p) => p.status === "pending").length,
     suspended: pros.filter((p) => p.status === "suspended").length,
+    claimed: pros.filter((p) => !!(p as any).claimed).length,
+    unclaimed: pros.filter((p) => !(p as any).claimed).length,
   };
 
   // LOGIN FORM
@@ -279,26 +751,23 @@ export default function AdminPage() {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${adminSection === "site" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
           <Shield className="w-4 h-4" /> Personnalisation
         </button>
+        <button onClick={() => setAdminSection("options")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${adminSection === "options" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+          <CreditCard className="w-4 h-4" /> Options complémentaires
+        </button>
       </div>
+
+      {/* ── Section Options complémentaires ── */}
+      {adminSection === "options" && (
+        <div className="space-y-6">
+          <OptionsManager />
+        </div>
+      )}
 
       {/* ── Section Personnalisation ── */}
       {adminSection === "site" && (
         <div className="space-y-6">
-          <div className="card p-6">
-            <div className="flex items-start justify-between mb-1 flex-wrap gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-landes-pine">Photo hero</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Cette photo s'affiche dans la section d'accueil du site, à droite du texte principal.
-                  Recommandé : 1 400 × 900 px, format paysage.
-                </p>
-              </div>
-              <HeroSaveButton />
-            </div>
-            <div className="max-w-xl mt-5">
-              <HeroImage editable />
-            </div>
-          </div>
+          <HeroSlideshowManager />
         </div>
       )}
 
@@ -599,7 +1068,7 @@ export default function AdminPage() {
                   activityTitle:    gatedVal("Titre de l'activité")  || existing?.activityTitle,
                   category:         matchedCat ?? existing?.category ?? CATEGORIES[0],
                   subcategory:      gatedVal("Sous-catégorie")        || existing?.subcategory,
-                  email:            gatedVal("Email")                || existing?.email            || `${id}@import.fr`,
+                  email:            gatedVal("Email")                || existing?.email            || "",
                   phone:            gatedVal("Téléphone")            || existing?.phone             || "",
                   whatsapp:         gatedVal("Whatsapp")             || existing?.whatsapp,
                   siren:            gatedVal("SIREN")                 || existing?.siren             || "000000000",
@@ -636,7 +1105,23 @@ export default function AdminPage() {
               e.target.value = "";
             }} />
           </label>
+
+          {/* Migration vers la base de données (étape 4) */}
+          <button
+            onClick={handleMigrateToDb}
+            disabled={migrating}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-landes-ocean/40 text-landes-ocean rounded-xl text-sm font-medium hover:bg-landes-ocean hover:text-white transition-colors disabled:opacity-50"
+          >
+            {migrating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            {migrating ? "Migration…" : "Migrer vers la base de données"}
+          </button>
         </div>
+
+        {migrationSummary && (
+          <p className="text-xs text-landes-ocean bg-landes-ocean/5 border border-landes-ocean/20 rounded-lg px-3 py-2 mb-4">
+            {migrationSummary}
+          </p>
+        )}
       </div>
 
       {/* Modale de sélection des colonnes */}
@@ -690,12 +1175,13 @@ export default function AdminPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {[
           { label: "Total", value: stats.total, icon: Users, color: "text-gray-700" },
           { label: "Actifs", value: stats.active, icon: CheckCircle, color: "text-green-600" },
           { label: "En attente", value: stats.pending, icon: Clock, color: "text-orange-500" },
           { label: "Suspendus", value: stats.suspended, icon: XCircle, color: "text-red-500" },
+          { label: "Non revendiquées", value: stats.unclaimed, icon: UserX, color: "text-amber-600" },
         ].map((s) => (
           <div key={s.label} className="card p-5 flex items-center gap-4">
             <s.icon className={`w-8 h-8 ${s.color}`} />
@@ -722,6 +1208,11 @@ export default function AdminPage() {
               <option value="pending">En attente</option>
               <option value="suspended">Suspendus</option>
               <option value="rejected">Refusés</option>
+            </select>
+            <select value={filterClaimed} onChange={(e) => setFilterClaimed(e.target.value as "" | "claimed" | "unclaimed")} className="input-field sm:w-44">
+              <option value="">Revendication : toutes</option>
+              <option value="claimed">Revendiquées</option>
+              <option value="unclaimed">Non revendiquées</option>
             </select>
           </div>
 
@@ -811,6 +1302,15 @@ export default function AdminPage() {
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <StatusBadge status={p.status} />
                     <PlanBadge plan={p.plan} />
+                    {(p as any).claimed ? (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <UserCheck className="w-3 h-3" /> Revendiquée
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        <UserX className="w-3 h-3" /> Non revendiquée
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -835,6 +1335,10 @@ export default function AdminPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-landes-pine">Détail de la fiche</h2>
               <div className="flex gap-2">
+                <button onClick={() => openFullEditModal(selectedPro)} title="Modifier tous les champs (formulaire complet)"
+                  className="p-1.5 rounded-lg text-sm bg-landes-ocean/10 text-landes-ocean hover:bg-landes-ocean/20">
+                  <Settings2 className="w-4 h-4" />
+                </button>
                 <button onClick={() => setEditMode(!editMode)} className={`p-1.5 rounded-lg text-sm ${editMode ? "bg-gray-200 text-gray-600" : "bg-landes-forest/10 text-landes-forest"}`}>
                   <Edit3 className="w-4 h-4" />
                 </button>
@@ -922,6 +1426,246 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* ── Modale d'édition complète (tous les champs du formulaire d'inscription) ── */}
+      {showFullEditModal && selectedPro && (
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-start justify-center p-4 overflow-y-auto" onClick={() => setShowFullEditModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full my-8" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+              <p className="font-bold text-landes-pine text-lg">Modifier la fiche — {selectedPro.companyName}</p>
+              <button onClick={() => setShowFullEditModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Formule — détermine quels champs sont disponibles ci-dessous */}
+              <div>
+                <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Formule</h3>
+                <select value={fullEditForm.plan || ""} onChange={e => updFull("plan", e.target.value)} className="input-field">
+                  {PLANS.map(p => <option key={p.id} value={p.id}>{p.name} — {p.price}€</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Les sections ci-dessous (photos, horaires, services…) s&apos;adaptent automatiquement à la formule sélectionnée, comme dans le tableau de bord du professionnel.
+                </p>
+              </div>
+
+              {/* Options complémentaires */}
+              <div>
+                <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Options complémentaires actives</h3>
+                <p className="text-xs text-gray-400 mb-2">
+                  Reflète normalement le statut réel des abonnements Stripe du professionnel. À corriger
+                  manuellement ici uniquement en cas de décalage constaté (ex: option activée depuis le
+                  tableau de bord mais non reflétée ici).
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { id: "pub", label: "Encart publicitaire ciblé" },
+                    { id: "seo", label: "Service de rédaction SEO" },
+                    { id: "crm", label: "Gestion prospects/clients" },
+                  ].map(opt => {
+                    const current: string[] = fullEditForm.complementaryOptions || [];
+                    const checked = current.includes(opt.id);
+                    return (
+                      <label key={opt.id} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...current, opt.id]
+                              : current.filter(id => id !== opt.id);
+                            updFull("complementaryOptions", next);
+                          }}
+                          className="w-4 h-4 accent-landes-forest"
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Entreprise */}
+              <div>
+                <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Informations de l&apos;entreprise</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Nom de l&apos;entreprise *</label>
+                    <input value={fullEditForm.companyName || ""} onChange={e => updFull("companyName", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Numéro SIREN</label>
+                    <input value={fullEditForm.siren || ""} onChange={e => updFull("siren", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Forme juridique</label>
+                    <select value={fullEditForm.legalForm || ""} onChange={e => updFull("legalForm", e.target.value)} className="input-field">
+                      <option value="">Sélectionner…</option>
+                      {["Auto-entrepreneur","EI","EURL","SARL","SAS","SASU","SA","SCP","Association","Autre"].map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">N° TVA intracommunautaire</label>
+                    <input value={fullEditForm.vatNumber || ""} onChange={e => updFull("vatNumber", e.target.value)} className="input-field" placeholder="FR12345678901" />
+                  </div>
+                  <div>
+                    <label className="label">Catégorie</label>
+                    <select value={fullEditForm.category || ""} onChange={e => { updFull("category", e.target.value); updFull("subcategory", ""); }} className="input-field">
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Sous-catégorie</label>
+                    <select value={fullEditForm.subcategory || ""} onChange={e => updFull("subcategory", e.target.value)} disabled={!fullEditForm.category || !SUBCATEGORIES[fullEditForm.category]} className="input-field disabled:bg-gray-50 disabled:text-gray-400">
+                      <option value="">Sélectionner…</option>
+                      {fullEditForm.category && SUBCATEGORIES[fullEditForm.category]?.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Titre de l&apos;activité</label>
+                    <input value={fullEditForm.activityTitle || ""} onChange={e => updFull("activityTitle", e.target.value)} className="input-field" maxLength={250} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Description courte <span className="text-gray-400 font-normal text-xs">(150 max.)</span></label>
+                    <textarea value={fullEditForm.shortDescription || ""} onChange={e => updFull("shortDescription", e.target.value)} rows={2} maxLength={150} className="input-field resize-none" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Description longue</label>
+                    <RichTextEditor value={fullEditForm.description || ""} onChange={v => updFull("description", v)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Identité visuelle */}
+              <div>
+                <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Identité visuelle</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <AdminImageUploader label="Logo" value={fullEditForm.logo} onChange={v => updFull("logo", v)} aspect="square" />
+                  <AdminImageUploader label="Bannière" value={fullEditForm.banner} onChange={v => updFull("banner", v)} aspect="banner" />
+                </div>
+              </div>
+
+              {/* Coordonnées & Accès */}
+              <div>
+                <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Informations dirigeant - Coordonnées &amp; Accès</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Prénom</label>
+                    <input value={fullEditForm.firstName || ""} onChange={e => updFull("firstName", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Nom</label>
+                    <input value={fullEditForm.lastName || ""} onChange={e => updFull("lastName", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Email de connexion</label>
+                    <input type="email" value={fullEditForm.email || ""} onChange={e => updFull("email", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Email professionnel (affiché)</label>
+                    <input type="email" value={fullEditForm.professionalEmail || ""} onChange={e => updFull("professionalEmail", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Téléphone</label>
+                    <input value={fullEditForm.phone || ""} onChange={e => updFull("phone", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">WhatsApp</label>
+                    <input value={fullEditForm.whatsapp || ""} onChange={e => updFull("whatsapp", e.target.value)} className="input-field" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Adresse</label>
+                    <input value={fullEditForm.address || ""} onChange={e => updFull("address", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Code postal</label>
+                    <input value={fullEditForm.postalCode || ""} onChange={e => updFull("postalCode", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Ville</label>
+                    <input value={fullEditForm.city || ""} onChange={e => updFull("city", e.target.value)} className="input-field" />
+                  </div>
+                  <div>
+                    <label className="label">Site web</label>
+                    <input value={fullEditForm.website || ""} onChange={e => updFull("website", e.target.value)} className="input-field" placeholder="https://" />
+                  </div>
+                  <div>
+                    <label className="label">Instagram</label>
+                    <input value={fullEditForm.socialLink || ""} onChange={e => updFull("socialLink", e.target.value)} className="input-field" placeholder="https://" />
+                  </div>
+                  <div>
+                    <label className="label">Facebook</label>
+                    <input value={fullEditForm.facebookLink || ""} onChange={e => updFull("facebookLink", e.target.value)} className="input-field" placeholder="https://" />
+                  </div>
+                  <div>
+                    <label className="label">TikTok</label>
+                    <input value={fullEditForm.tiktokLink || ""} onChange={e => updFull("tiktokLink", e.target.value)} className="input-field" placeholder="https://" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Services — masqué pour Standard, 1 service pour Premium, 3 pour Gold (comme dans le dashboard pro) */}
+              {fullEditForm.plan !== "standard" && (
+                <div>
+                  <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">
+                    Services mis en avant <span className="text-gray-400 font-normal">({fullEditForm.plan === "gold" ? "3 max — formule Gold" : "1 max — formule Premium"})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {Array.from({ length: fullEditForm.plan === "gold" ? 3 : 1 }).map((_, i) => (
+                      <input key={i} value={(fullEditForm.services || [])[i] || ""}
+                        onChange={e => {
+                          const next = [...(fullEditForm.services || ["", "", ""])];
+                          next[i] = e.target.value;
+                          updFull("services", next);
+                        }}
+                        className="input-field" placeholder={`Service ${i + 1}`} maxLength={30} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Photos — masqué pour Standard (comme dans le dashboard pro) */}
+              {fullEditForm.plan !== "standard" && (
+                <div>
+                  <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Photos d&apos;entreprise</h3>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    {[0, 1, 2, 3, 4].map(i => (
+                      <AdminImageUploader key={i} label={`Photo ${i + 1}`}
+                        value={(fullEditForm.photos || [])[i]}
+                        onChange={v => {
+                          const next = [...(fullEditForm.photos || [])];
+                          if (v) next[i] = v; else next.splice(i, 1);
+                          updFull("photos", next.filter(Boolean));
+                        }}
+                        aspect="square" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Horaires — masqué pour Standard (comme dans le dashboard pro) */}
+              {fullEditForm.plan !== "standard" && (
+                <div>
+                  <h3 className="text-sm font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-3 py-2 rounded-r-lg mb-3">Horaires d&apos;ouverture</h3>
+                  <OpeningHoursEditor
+                    value={fullEditForm.openingHours || ({} as OpeningHours)}
+                    onChange={h => updFull("openingHours", h)}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 sticky bottom-0 bg-white rounded-b-2xl">
+              <button onClick={() => setShowFullEditModal(false)} className="btn-secondary px-5 py-2.5 text-sm">Annuler</button>
+              <button onClick={handleSaveFullEdit} disabled={savingFullEdit} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
+                {savingFullEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {savingFullEdit ? "Enregistrement…" : "Enregistrer toutes les modifications"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>)}
     </div>
   );

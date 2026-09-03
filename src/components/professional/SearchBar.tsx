@@ -145,8 +145,8 @@ export default function SearchBar({
     }
   }, [query, location, userLat, userLng, radius, router]);
 
-  const pickSuggestion = (s: string) => { setQuery(s); setShowSug(false); handleSearch(s, location); };
-  const pickCity = (c: string) => { setLocation(c); clearGeo(); setShowCity(false); handleSearch(query, c); };
+  const pickSuggestion = (s: string) => { setQuery(s); setShowSug(false); };
+  const pickCity = (c: string) => { setLocation(c); clearGeo(); setShowCity(false); };
 
   const fieldPad = compact ? "px-4 py-3" : "px-5 py-4";
   const btnPad   = compact ? "px-6 py-3" : "px-8 py-4";

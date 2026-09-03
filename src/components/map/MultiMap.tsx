@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { Professional } from "@/types";
+import { buildProfileUrl } from "@/lib/profileUrl";
 
 interface MultiMapProps {
   professionals: Professional[];
@@ -181,7 +182,7 @@ export default function MultiMap({ professionals, onSelectPro, flyTo }: MultiMap
                 </div>
               </div>
               <p style="color:#555;font-size:11px;margin:0">📍 ${pro.city}</p>
-              <a href="/annuaire/${pro.id}" style="
+              <a href="${buildProfileUrl(pro)}" style="
                 display:inline-block;margin-top:4px;
                 background:#2D5A3D;color:white;
                 font-size:11px;font-weight:600;

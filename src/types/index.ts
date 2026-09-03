@@ -7,6 +7,7 @@ export interface Professional {
   companyName: string;
   siren: string;
   siret?: string;
+  vatNumber?: string;
   legalForm: string;
   category: string;
   subcategory?: string;
@@ -26,6 +27,18 @@ export interface Professional {
   paymentMethod?: "cheque" | "card";
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  /** true si le dirigeant de l'entreprise a lui-même revendiqué/créé cette fiche */
+  claimed?: boolean;
+  /**
+   * Changement de formule différé : la formule actuelle (pro.plan) reste
+   * active jusqu'à la date de renouvellement en cours, puis bascule
+   * automatiquement vers targetPlan le lendemain de cette date.
+   */
+  pendingPlanChange?: {
+    targetPlan: "standard" | "premium" | "gold";
+    effectiveDate: string; // ISO — lendemain de la date de renouvellement de l'ancienne formule
+    newSubscriptionId?: string; // abonnement de la nouvelle formule, déjà créé mais en période d'essai jusqu'à effectiveDate
+  };
   adBannerImage?: string;
   seoKeywords?: string[];
   address: string;
@@ -413,9 +426,11 @@ export interface BillingDocument {
     email:       string;
     phone:       string;
     siren:       string;
+    siret?:      string;
     legalForm:   string;
     vatNumber?:  string;   // n° TVA intracommunautaire
     rcs?:        string;   // ex: "RCS Mont-de-Marsan"
+    rm?:         string;   // Répertoire des métiers (artisans)
     capital?:    string;   // pour SARL/SAS etc.
     ape?:        string;   // code APE/NAF
   };

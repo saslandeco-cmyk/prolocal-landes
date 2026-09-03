@@ -169,6 +169,34 @@ export function saveProfessional(pro: Professional): void {
   if (!safeSet(STORAGE_KEY, JSON.stringify(pros))) {
     console.warn("[storage] Failed to save professionals list.");
   }
+
+  // ── Étape 2 de la migration base de données : double-écriture ──
+  // Reflète également la fiche vers la base Postgres (si configurée), en
+  // plus du localStorage qui reste la source de vérité pour l'instant.
+  // Entièrement non-bloquant : un échec (base non configurée, hors-ligne,
+  // etc.) n'affecte jamais le fonctionnement normal du site.
+  mirrorProfessionalToDb(pro);
+}
+
+/** Réplique une fiche professionnelle vers la base (fire-and-forget, jamais bloquant). */
+/**
+ * Réplique une fiche professionnelle vers la base (fire-and-forget, jamais
+ * bloquant). Exportée pour être réutilisable en dehors de saveProfessional()
+ * — notamment pour la synchronisation à la connexion (étape 4) et la
+ * migration en masse depuis l'admin, sans avoir besoin de réécrire dans
+ * localStorage ni de retoucher les images à chaque fois.
+ */
+export function mirrorProfessionalToDb(pro: Professional): void {
+  if (typeof window === "undefined") return;
+  fetch("/api/db/professionals", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(pro),
+  }).catch(() => {
+    // Silencieux : la base peut ne pas être configurée, ou temporairement
+    // indisponible — le site continue de fonctionner normalement via
+    // localStorage dans tous les cas.
+  });
 }
 
 export function deleteProfessional(id: string): void {
@@ -177,6 +205,11 @@ export function deleteProfessional(id: string): void {
     .map(p => ({ ...p, logo: undefined, banner: undefined, photos: undefined }))
     .filter(p => p.id !== id);
   safeSet(STORAGE_KEY, JSON.stringify(pros));
+
+  // Étape 2 — reflète la suppression vers la base également
+  if (typeof window !== "undefined") {
+    fetch(`/api/db/professionals/${id}`, { method: "DELETE" }).catch(() => {});
+  }
 }
 
 export function getProfessionalById(id: string): Professional | null {
@@ -193,8 +226,14 @@ export function getProfessionalByEmail(email: string): Professional | null {
   return getRawProfessionals().find(p => p.email === email) ?? null;
 }
 
+/** Génère un identifiant numérique à 6 chiffres, unique parmi les fiches existantes. */
 export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  const existingIds = new Set(getRawProfessionals().map(p => p.id));
+  let id: string;
+  do {
+    id = String(Math.floor(100000 + Math.random() * 900000));
+  } while (existingIds.has(id));
+  return id;
 }
 
 // ── Session ───────────────────────────────────────────────────
@@ -433,10 +472,24 @@ export function saveReview(review: Review): void {
   const idx = all.findIndex(r => r.id === review.id);
   if (idx >= 0) all[idx] = review; else all.push(review);
   safeSet(REVIEWS_KEY, JSON.stringify(all));
+
+  // Étape 2 de la migration base de données : double-écriture non bloquante
+  if (typeof window !== "undefined") {
+    fetch("/api/db/reviews", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(review),
+    }).catch(() => {});
+  }
 }
 
 export function deleteReview(id: string): void {
   safeSet(REVIEWS_KEY, JSON.stringify(getReviews().filter(r => r.id !== id)));
+
+  // Étape 2 — reflète la suppression vers la base également
+  if (typeof window !== "undefined") {
+    fetch(`/api/db/reviews/${id}`, { method: "DELETE" }).catch(() => {});
+  }
 }
 
 export function flagReview(id: string): void {
@@ -548,10 +601,23 @@ export function saveDocument(doc: BillingDocument): void {
   const idx = all.findIndex(d => d.id === doc.id);
   if (idx >= 0) all[idx] = doc; else all.push(doc);
   safeSet(DOCS_KEY, JSON.stringify(all));
+
+  // Double-écriture vers la base (étape 2, complétée ici pour les documents)
+  if (typeof window !== "undefined") {
+    fetch("/api/db/documents", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(doc),
+    }).catch(() => {});
+  }
 }
 
 export function deleteDocument(id: string): void {
   safeSet(DOCS_KEY, JSON.stringify(getDocuments().filter(d => d.id !== id)));
+
+  if (typeof window !== "undefined") {
+    fetch(`/api/db/documents/${id}`, { method: "DELETE" }).catch(() => {});
+  }
 }
 
 export function getNextNumber(proId: string, type: BillingDocument["type"]): string {
@@ -612,10 +678,23 @@ export function saveClient(client: Client): void {
   const idx = all.findIndex(c => c.id === client.id);
   if (idx >= 0) all[idx] = client; else all.push(client);
   safeSet(CLIENTS_KEY, JSON.stringify(all));
+
+  // Double-écriture vers la base (étape 2, complétée ici pour les clients)
+  if (typeof window !== "undefined") {
+    fetch("/api/db/clients", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(client),
+    }).catch(() => {});
+  }
 }
 
 export function deleteClient(id: string): void {
   safeSet(CLIENTS_KEY, JSON.stringify(getClients().filter(c => c.id !== id)));
+
+  if (typeof window !== "undefined") {
+    fetch(`/api/db/clients/${id}`, { method: "DELETE" }).catch(() => {});
+  }
 }
 
 // ── Hero image ────────────────────────────────────────────────────
@@ -641,4 +720,18 @@ export async function saveHeroImage(dataUrl: string): Promise<void> {
 
 export async function deleteHeroImage(): Promise<void> {
   await idbSet(HERO_IMAGE_IDB_KEY, null);
+}
+
+// ── Diaporama hero "Encart publicitaire ciblé" ──────────────────────
+// Liste des IDs de professionnels à afficher dans le diaporama de la
+// section hero, gérée manuellement par l'administrateur (voir /admin).
+const HERO_SLIDESHOW_KEY = "prolocal_hero_slideshow_ids";
+
+export function getHeroSlideshowIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem(HERO_SLIDESHOW_KEY) || "[]"); } catch { return []; }
+}
+
+export function saveHeroSlideshowIds(ids: string[]): void {
+  safeSet(HERO_SLIDESHOW_KEY, JSON.stringify(ids));
 }

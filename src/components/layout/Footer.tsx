@@ -4,8 +4,8 @@ import { MapPin, Mail, Phone } from "lucide-react";
 export default function Footer() {
   return (
     <footer className="bg-landes-pine text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8" style={{ display: "none" }}>
           {/* Brand */}
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
@@ -47,12 +47,12 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
           <p className="text-sm text-gray-400">© 2024 Prolocal-landes.fr — Annuaire des Landes (40)</p>
           <div className="flex gap-4 text-sm text-gray-400">
-            <Link href="#" className="hover:text-white transition-colors">Mentions légales</Link>
-            <Link href="#" className="hover:text-white transition-colors">CGU</Link>
-            <Link href="#" className="hover:text-white transition-colors">RGPD</Link>
+            <Link href="/mentions-legales" className="hover:text-white transition-colors">Mentions légales</Link>
+            <Link href="/cgu" className="hover:text-white transition-colors">CGU</Link>
+            <Link href="/protection-donnees-personnelles" className="hover:text-white transition-colors">RGPD</Link>
           </div>
         </div>
       </div>

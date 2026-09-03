@@ -33,7 +33,6 @@ function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 flex-shrink-
 
 const HEADING_OPTIONS = [
   { label: "Paragraphe", value: "paragraph" },
-  { label: "Titre H1",   value: "h1" },
   { label: "Titre H2",   value: "h2" },
   { label: "Titre H3",   value: "h3" },
 ];
@@ -102,7 +101,6 @@ export default function RichTextEditor({
   const applyHeading = (val: string) => {
     if (!editor) return;
     if (val === "paragraph") editor.chain().focus().setParagraph().run();
-    else if (val === "h1")   editor.chain().focus().toggleHeading({ level: 1 }).run();
     else if (val === "h2")   editor.chain().focus().toggleHeading({ level: 2 }).run();
     else if (val === "h3")   editor.chain().focus().toggleHeading({ level: 3 }).run();
     setShowHeading(false);

@@ -4,23 +4,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   LogOut, Edit3, CheckCircle, Clock, Save, Loader2, Eye, EyeOff,
   Calendar, Trash2, CalendarCheck, CalendarX, Settings, Ban, Plus, X,
-  ImagePlus, Images, Star, Shield, Info, CreditCard,
+  ImagePlus, Images, Star, Shield, Info, CreditCard, RefreshCw,
 } from "lucide-react";
 import {
   getSession, clearSession, getProfessionalById, saveProfessional, rehydrateAsync,
-  generateId, getReviewsByPro, saveReview, deleteProfessional,
+  generateId, getReviewsByPro, saveReview, deleteProfessional, mirrorProfessionalToDb,
 } from "@/lib/storage";
 import { Professional, CATEGORIES, SUBCATEGORIES, LANDES_CITIES, PLANS, OpeningHours, Review } from "@/types";
+import { buildProfileUrl } from "@/lib/profileUrl";
 import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import RichTextEditor from "@/components/ui/RichTextEditor";
-import SubscriptionManager from "@/components/professional/SubscriptionManager";
+import SubscriptionManager, { type SubscriptionManagerHandle } from "@/components/professional/SubscriptionManager";
+import ComplementaryOptionsManager from "@/components/professional/ComplementaryOptionsManager";
+import StripePaymentForm from "@/components/professional/StripePaymentForm";
 import { getBanner } from "@/lib/defaultBanners";
 import { REQUIRE_VALIDATION } from "@/lib/config";
 import StatsTab from "@/app/dashboard/StatsTab";
 import FacturationTab from "@/app/dashboard/FacturationTab";
 import CrmTab from "@/app/dashboard/CrmTab";
+import RevenueTab from "@/app/dashboard/RevenueTab";
 import Link from "next/link";
 
 const MAX_PHOTOS = 5;
@@ -47,12 +51,22 @@ function DashboardContent() {
   const [savedSection,  setSavedSection]  = useState<string | null>(null);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
-  const [activeTab, setActiveTab] = useState<"fiche" | "photos" | "horaires" | "avis" | "stats" | "info-facturation" | "facturation" | "clients" | "plan">("fiche");
+  const [activeTab, setActiveTab] = useState<"fiche" | "photos" | "horaires" | "avis" | "stats" | "info-facturation" | "facturation" | "clients" | "revenue" | "plan" | "subscriptions">("fiche");
   const [photos, setPhotos] = useState<string[]>([]);
   const [proReviews, setProReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsLoadError, setReviewsLoadError] = useState(false);
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [confirmAction, setConfirmAction] = useState<"suspend" | "delete" | null>(null);
   const [planChanging, setPlanChanging] = useState(false);
+  const [planOrderTarget, setPlanOrderTarget] = useState<string | null>(null);
+  const [planOrderClientSecret, setPlanOrderClientSecret] = useState<string | null>(null);
+  const [planOrderCustomerId, setPlanOrderCustomerId] = useState<string | null>(null);
+  const [planOrderPreparing, setPlanOrderPreparing] = useState(false);
+  const [planOrderFinalizing, setPlanOrderFinalizing] = useState(false);
+  const [planOrderDone, setPlanOrderDone] = useState(false);
+  const [downgrading, setDowngrading] = useState(false);
+  const subscriptionManagerRef = useRef<SubscriptionManagerHandle>(null);
   const [autoEditProfile, setAutoEditProfile] = useState(false);
   const [photoSaved, setPhotoSaved] = useState(false);
   const photoRef = useRef<HTMLInputElement>(null);
@@ -64,27 +78,247 @@ function DashboardContent() {
   });
   const [form, setForm]       = useState<Partial<Professional>>({});
   const [hours, setHours]     = useState<OpeningHours>(DEFAULT_HOURS);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const session = getSession();
     if (!session || session.type !== "pro" || !session.id) { router.push("/connexion"); return; }
-    const data = getProfessionalById(session.id);
-    if (!data) { router.push("/connexion"); return; }
-    setPro(data);
-    setForm(data);
-    setHours(data.openingHours || DEFAULT_HOURS);
-    setPhotos(data.photos || []);
-    setProReviews(getReviewsByPro(data.id));
-    // Charge les images depuis IndexedDB
-    rehydrateAsync(data).then(full => {
-      setPro(full);
-      setForm(full);
-      setPhotos(full.photos || []);
-    });
+
+    let cancelled = false;
+
+    // ── Étape 5 de la migration base de données ──
+    // Charge en priorité depuis la base (accessible depuis n'importe quel
+    // appareil/navigateur), avec repli automatique et silencieux sur
+    // localStorage si la base est indisponible, non configurée, ou si
+    // cette fiche n'y a pas encore été migrée. Un état d'erreur dédié ne
+    // s'affiche que si AUCUNE des deux sources ne renvoie de données.
+    const loadPro = async () => {
+      setLoadError(false);
+      let data: Professional | null = null;
+
+      try {
+        const res = await fetch(`/api/db/professionals/${session.id}`);
+        if (res.ok) {
+          const json = await res.json();
+          data = json.professional || null;
+        }
+      } catch {
+        // Réseau indisponible ou base non configurée : repli silencieux ci-dessous
+      }
+
+      if (!data) data = getProfessionalById(session.id);
+      if (cancelled) return;
+
+      if (!data) {
+        // Rien trouvé ni en base ni en local : peut être une vraie erreur
+        // réseau plutôt qu'un compte inexistant — on affiche un message
+        // avec possibilité de réessayer, plutôt que de rediriger en silence.
+        setLoadError(true);
+        return;
+      }
+
+      setPro(data);
+      setForm(data);
+      setHours(data.openingHours || DEFAULT_HOURS);
+      setPhotos(data.photos || []);
+      loadReviews(data.id);
+      // Charge les images depuis IndexedDB (complète les données si besoin)
+      rehydrateAsync(data).then(full => {
+        if (cancelled) return;
+        setPro(full);
+        setForm(full);
+        setPhotos(full.photos || []);
+        // Synchronise systématiquement vers la base à chaque connexion (couvre
+        // les sessions où le professionnel consulte sans rien modifier).
+        mirrorProfessionalToDb(full);
+      });
+    };
+
+    loadPro();
+    return () => { cancelled = true; };
   }, [router]);
+
+  // ── Étape 5 de la migration base de données ──
+  // Charge en priorité depuis la base (avis accessibles depuis n'importe
+  // quel appareil), avec repli automatique et silencieux sur localStorage
+  // si la base est indisponible ou pas encore alimentée pour ce
+  // professionnel. Réutilisable (chargement initial + après réponse à un avis).
+  const loadReviews = async (proId: string) => {
+    setReviewsLoading(true);
+    setReviewsLoadError(false);
+
+    let reviews: Review[] | null = null;
+    try {
+      const res = await fetch(`/api/db/reviews?proId=${encodeURIComponent(proId)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.reviews) && json.reviews.length > 0) reviews = json.reviews;
+      }
+    } catch {
+      // Réseau indisponible ou base non configurée : repli silencieux ci-dessous
+    }
+
+    if (!reviews) {
+      try {
+        reviews = getReviewsByPro(proId);
+      } catch {
+        setReviewsLoadError(true);
+        setReviewsLoading(false);
+        return;
+      }
+    }
+
+    setProReviews(reviews);
+    setReviewsLoading(false);
+  };
 
   const handleLogout = () => { clearSession(); router.push("/"); };
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+  // Commande d'une formule payante : redirige vers un paiement Stripe intégré
+  // (jamais un simple changement local pour une formule payante).
+  const startPlanOrder = async (planId: string) => {
+    if (!pro) return;
+    setPlanOrderTarget(planId);
+    setPlanOrderPreparing(true);
+    setPlanOrderClientSecret(null);
+    setPlanOrderDone(false);
+    try {
+      const res = await fetch("/api/subscriptions/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId,
+          optionIds: [],
+          email: pro.email,
+          companyName: pro.companyName,
+          siren: pro.siren,
+        }),
+      });
+      const data = await res.json();
+      if (data.clientSecret) {
+        setPlanOrderClientSecret(data.clientSecret);
+        setPlanOrderCustomerId(data.customerId);
+      } else {
+        alert(data.error || "Erreur lors de la préparation du paiement.");
+        setPlanOrderTarget(null);
+      }
+    } catch {
+      alert("Erreur réseau lors de la préparation du paiement.");
+      setPlanOrderTarget(null);
+    } finally {
+      setPlanOrderPreparing(false);
+    }
+  };
+
+  const handlePlanOrderSuccess = async (paymentMethodId?: string) => {
+    if (!pro || !planOrderCustomerId || !paymentMethodId || !planOrderTarget) {
+      alert("Impossible de finaliser le paiement (informations manquantes).");
+      return;
+    }
+    setPlanOrderFinalizing(true);
+    try {
+      const res = await fetch("/api/subscriptions/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: planOrderCustomerId,
+          paymentMethodId,
+          planId: planOrderTarget, // jamais d'optionIds ici : la formule est un produit à part
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || "Erreur lors de la finalisation du paiement.");
+        return;
+      }
+      const updated = {
+        ...pro,
+        plan: planOrderTarget as any,
+        stripeCustomerId: (pro as any).stripeCustomerId || planOrderCustomerId,
+        updatedAt: new Date().toISOString(),
+      };
+      saveProfessional(updated);
+      setPro(updated);
+      setPlanOrderDone(true);
+    } catch {
+      alert("Erreur réseau lors de la finalisation du paiement.");
+    } finally {
+      setPlanOrderFinalizing(false);
+    }
+  };
+
+  const closePlanOrderModal = () => {
+    setPlanOrderTarget(null);
+    setPlanOrderClientSecret(null);
+    setPlanOrderCustomerId(null);
+    setPlanOrderDone(false);
+  };
+
+  // Rétrogradation différée : Gold → Premium ou Premium → Standard.
+  // La formule actuelle continue jusqu'à sa date de renouvellement ; le
+  // changement effectif (et le premier prélèvement de la nouvelle formule,
+  // le cas échéant) n'intervient que le lendemain de cette date.
+  const handleDowngrade = async (targetPlanId: string) => {
+    if (!pro) return;
+    const customerId = (pro as any).stripeCustomerId;
+    if (!customerId) {
+      alert("Aucun compte de facturation associé à votre fiche.");
+      return;
+    }
+    if (!confirm(
+      targetPlanId === "standard"
+        ? "Votre formule Premium restera active jusqu'à sa date de renouvellement. Vous basculerez ensuite automatiquement en formule Gratuite le lendemain. Confirmer ?"
+        : "Votre formule Gold restera active jusqu'à sa date de renouvellement. Votre formule Premium débutera ensuite automatiquement le lendemain (premier prélèvement à cette date). Confirmer ?"
+    )) return;
+
+    setDowngrading(true);
+    try {
+      const res = await fetch("/api/subscriptions/downgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId, targetPlanId }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        alert(data.error || "Erreur lors de la programmation du changement de formule.");
+        return;
+      }
+      const updated = {
+        ...pro,
+        pendingPlanChange: {
+          targetPlan: targetPlanId,
+          effectiveDate: data.effectiveDate,
+          newSubscriptionId: data.newSubscriptionId,
+        },
+        updatedAt: new Date().toISOString(),
+      } as any;
+      saveProfessional(updated);
+      setPro(updated);
+    } catch {
+      alert("Erreur réseau lors de la programmation du changement de formule.");
+    } finally {
+      setDowngrading(false);
+    }
+  };
+
+  // Applique automatiquement un changement de formule différé dont la date
+  // effective est atteinte (vérifié à chaque chargement du tableau de bord).
+  useEffect(() => {
+    if (!pro || !(pro as any).pendingPlanChange) return;
+    const pending = (pro as any).pendingPlanChange;
+    if (new Date(pending.effectiveDate).getTime() <= Date.now()) {
+      const updated = {
+        ...pro,
+        plan: pending.targetPlan,
+        pendingPlanChange: undefined,
+        updatedAt: new Date().toISOString(),
+      } as any;
+      saveProfessional(updated);
+      setPro(updated);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pro?.id]);
 
   const handleSaveFiche = async () => {
     if (!pro) return;
@@ -218,6 +452,18 @@ function DashboardContent() {
     handleSavePhotos(arr);
   };
 
+  if (loadError) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
+      <p className="text-lg font-bold text-landes-pine">Impossible de charger votre tableau de bord</p>
+      <p className="text-sm text-gray-500 max-w-sm">
+        Vérifiez votre connexion internet et réessayez. Si le problème persiste, reconnectez-vous.
+      </p>
+      <button onClick={() => window.location.reload()} className="btn-primary flex items-center gap-2">
+        <Loader2 className="w-4 h-4" /> Réessayer
+      </button>
+    </div>
+  );
+
   if (!pro) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <Loader2 className="w-8 h-8 animate-spin text-landes-forest" />
@@ -225,6 +471,10 @@ function DashboardContent() {
   );
 
   const currentPlan = PLANS.find(p => p.id === pro.plan);
+  // Une fois la fiche validée (statut actif), les identifiants légaux
+  // (SIREN, SIRET, forme juridique, catégorie, sous-catégorie) ne sont
+  // plus modifiables directement par le professionnel.
+  const ficheLocked = pro.status === "active";
 
   return (
     <div className="w-[90%] mx-auto px-4 sm:px-6 py-8">
@@ -303,7 +553,7 @@ function DashboardContent() {
             {/* Boutons voir ma page / modifier */}
             <div className="p-3 space-y-1.5 border-b border-gray-100">
               {pro.status === "active" && (
-                <Link href={`/annuaire/${pro.id}`} className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-landes-forest hover:bg-landes-forest/5 transition-colors">
+                <Link href={buildProfileUrl(pro)} className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-landes-forest hover:bg-landes-forest/5 transition-colors">
                   <Eye className="w-4 h-4 flex-shrink-0" /> Voir ma page
                 </Link>
               )}
@@ -325,9 +575,11 @@ function DashboardContent() {
                 { id: "info-facturation", label: "Infos facturation",     emoji: "🏢", editable: true,  plans: ["gold"] },
                 { id: "facturation",      label: "Devis / Facture",       emoji: "🧾", editable: false, plans: ["gold"] },
                 { id: "clients",          label: "Prospects / Clients",   emoji: "👥", editable: false, plans: ["gold"] },
+                { id: "revenue",          label: "Chiffre d'affaires",    emoji: "📈", editable: false, plans: ["gold"] },
                 { id: "stats",            label: "Statistiques",          emoji: "📊", editable: false, plans: ["gold"] },
                 { id: "avis",             label: "Avis clients",          emoji: "⭐", editable: false, plans: ["premium","gold"] },
                 { id: "plan",             label: "Formule",               emoji: "✨", editable: false, plans: ["standard","premium","gold"] },
+                { id: "subscriptions",    label: "Mes abonnements",       emoji: "💳", editable: false, plans: ["standard","premium","gold"] },
               ] as const).filter(tab => tab.plans.includes(pro.plan)).map(tab => {
                 const isActive = activeTab === tab.id;
                 return (
@@ -464,32 +716,48 @@ function DashboardContent() {
               <p className="text-gray-900 font-mono font-semibold">{pro.siren.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3")}</p>
               <span className="inline-block mt-1 text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non modifiable</span>
             </div>
+            {(pro as any).siret && (
+              <div>
+                <label className="label">SIRET</label>
+                <p className="text-gray-900 font-mono font-semibold">{(pro as any).siret}</p>
+                <span className="inline-block mt-1 text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non modifiable</span>
+              </div>
+            )}
             <div>
               <label className="label">Forme juridique</label>
-              {editing
+              {editing && !ficheLocked
                 ? <select value={form.legalForm || ""} onChange={e => update("legalForm", e.target.value)} className="input-field">
                     {["Auto-entrepreneur","EI","EURL","SARL","SAS","SASU","SA","SCP","SELARL","SNC","SCI","Association","Autre"].map(f => <option key={f} value={f}>{f}</option>)}
                   </select>
-                : <p className="text-gray-900 font-medium">{pro.legalForm}</p>}
+                : <>
+                    <p className="text-gray-900 font-medium">{pro.legalForm}</p>
+                    {editing && ficheLocked && <span className="inline-block mt-1 text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non modifiable</span>}
+                  </>}
             </div>
             <div>
               <label className="label">Catégorie</label>
-              {editing
+              {editing && !ficheLocked
                 ? <select value={form.category || ""} onChange={e => { update("category", e.target.value); update("subcategory", ""); }} className="input-field">
                     {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                : <p className="text-gray-900 font-medium">{pro.category}</p>}
+                : <>
+                    <p className="text-gray-900 font-medium">{pro.category}</p>
+                    {editing && ficheLocked && <span className="inline-block mt-1 text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non modifiable</span>}
+                  </>}
             </div>
 
-            {SUBCATEGORIES[(editing ? form.category : pro.category) as string] && (
+            {SUBCATEGORIES[((editing && !ficheLocked) ? form.category : pro.category) as string] && (
               <div>
                 <label className="label">Sous-catégorie <span className="text-gray-400 font-normal text-xs">(facultatif)</span></label>
-                {editing
+                {editing && !ficheLocked
                   ? <select value={(form.subcategory as string) || ""} onChange={e => update("subcategory", e.target.value)} className="input-field">
                       <option value="">Sélectionner…</option>
                       {SUBCATEGORIES[form.category as string].map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
-                  : <p className="text-gray-900 font-medium">{(pro as any).subcategory || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
+                  : <>
+                      <p className="text-gray-900 font-medium">{(pro as any).subcategory || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>
+                      {editing && ficheLocked && <span className="inline-block mt-1 text-[10px] font-medium bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non modifiable</span>}
+                    </>}
               </div>
             )}
 
@@ -700,6 +968,31 @@ function DashboardContent() {
         </div>
       )}
 
+      {/* Zone critique — en bas de l'onglet "Ma fiche" */}
+      {activeTab === "fiche" && (
+        <div className="card p-8 border border-red-100 mt-6">
+          <h2 className="text-lg font-bold text-red-700 mb-1 flex items-center gap-2">
+            <Shield className="w-5 h-5" /> Zone critique
+          </h2>
+          <p className="text-sm text-gray-500 mb-6">Ces actions sont irréversibles ou affectent la visibilité de votre fiche.</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setConfirmAction("suspend")}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors font-medium text-sm"
+            >
+              <EyeOff className="w-4 h-4" />
+              {pro.status === "suspended" ? "Réactiver ma fiche" : "Suspendre ma fiche"}
+            </button>
+            <button
+              onClick={() => setConfirmAction("delete")}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors font-medium text-sm"
+            >
+              <Trash2 className="w-4 h-4" /> Supprimer définitivement ma fiche
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── TAB PHOTOS ── */}
       {activeTab === "photos" && (
         <div className="card p-8 space-y-6">
@@ -865,7 +1158,19 @@ function DashboardContent() {
             </p>
           </div>
 
-          {proReviews.length === 0 ? (
+          {reviewsLoadError ? (
+            <div className="card p-10 text-center">
+              <p className="font-medium text-landes-pine mb-1">Impossible de charger vos avis</p>
+              <p className="text-sm text-gray-500 mb-4">Vérifiez votre connexion internet et réessayez.</p>
+              <button onClick={() => loadReviews(pro!.id)} className="btn-primary inline-flex items-center gap-2">
+                <Loader2 className="w-4 h-4" /> Réessayer
+              </button>
+            </div>
+          ) : reviewsLoading ? (
+            <div className="card p-10 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-landes-forest" />
+            </div>
+          ) : proReviews.length === 0 ? (
             <div className="card p-10 text-center text-gray-400">Aucun avis reçu pour le moment.</div>
           ) : (
             proReviews.map(review => (
@@ -934,7 +1239,7 @@ function DashboardContent() {
                         onClick={() => {
                           const updated = { ...review, reply: replyDrafts[review.id] ?? review.reply ?? "", repliedAt: new Date().toISOString() };
                           saveReview(updated);
-                          setProReviews(getReviewsByPro(pro!.id));
+                          loadReviews(pro!.id);
                           setReplyDrafts(p => { const n = { ...p }; delete n[review.id]; return n; });
                         }}
                         className="btn-primary py-2 px-4 text-sm"
@@ -970,6 +1275,11 @@ function DashboardContent() {
         <CrmTab pro={pro} />
       )}
 
+      {/* ── TAB CHIFFRE D'AFFAIRES ── */}
+      {activeTab === "revenue" && (
+        <RevenueTab proId={pro.id} />
+      )}
+
       {/* ── TAB PLAN ── */}
       {activeTab === "plan" && (
         <div className="space-y-6">
@@ -977,10 +1287,6 @@ function DashboardContent() {
           <div className="card p-8">
             <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg mb-1">Ma formule</h2>
             <p className="text-sm text-gray-500 mb-4">Changez de formule à tout moment. Le changement est immédiat.</p>
-
-            {(pro as any).stripeCustomerId && (
-              <SubscriptionManager customerId={(pro as any).stripeCustomerId} />
-            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
               {PLANS.map(plan => (
@@ -993,6 +1299,17 @@ function DashboardContent() {
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-landes-forest text-white text-xs font-bold px-3 py-0.5 rounded-full whitespace-nowrap">
                       Votre formule actuelle
                     </div>
+                  )}
+                  {(pro as any).pendingPlanChange?.targetPlan === plan.id && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-0.5 rounded-full whitespace-nowrap">
+                      Prochaine formule
+                    </div>
+                  )}
+                  {pro.plan === plan.id && (pro as any).pendingPlanChange && (
+                    <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-3 text-center">
+                      Passage à {PLANS.find(p => p.id === (pro as any).pendingPlanChange.targetPlan)?.name} le{" "}
+                      {new Date((pro as any).pendingPlanChange.effectiveDate).toLocaleDateString("fr-FR")}
+                    </p>
                   )}
                   <h3 className={`font-bold text-lg mb-1 ${plan.color}`}>{plan.name}</h3>
                   <div className="flex items-baseline gap-1 mb-4">
@@ -1012,10 +1329,23 @@ function DashboardContent() {
                       </li>
                     ))}
                   </ul>
-                  {pro.plan !== plan.id && (
+                  {pro.plan !== plan.id && !((pro as any).pendingPlanChange) && (
                     <button
-                      disabled={planChanging}
+                      disabled={planChanging || downgrading}
                       onClick={async () => {
+                        const isDeferredDowngrade =
+                          (pro.plan === "gold" && plan.id === "premium") ||
+                          (pro.plan === "premium" && plan.id === "standard");
+
+                        if (isDeferredDowngrade) {
+                          await handleDowngrade(plan.id);
+                          return;
+                        }
+                        if (plan.price > 0) {
+                          // Formule payante : passage obligatoire par le formulaire de paiement
+                          startPlanOrder(plan.id);
+                          return;
+                        }
                         setPlanChanging(true);
                         await new Promise(r => setTimeout(r, 600));
                         const updated = { ...pro, plan: plan.id as any, updatedAt: new Date().toISOString() };
@@ -1025,39 +1355,115 @@ function DashboardContent() {
                       }}
                       className="w-full py-2.5 rounded-xl border-2 border-landes-forest text-landes-forest hover:bg-landes-forest hover:text-white transition-all text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-2 mt-auto"
                     >
-                      {planChanging
-                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Changement…</>
+                      {planChanging || downgrading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> {downgrading ? "Programmation…" : "Changement…"}</>
                         : `Passer à ${plan.name}`
                       }
                     </button>
+                  )}
+                  {(pro as any).pendingPlanChange?.targetPlan === plan.id && (
+                    <p className="mt-auto text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-center">
+                      Prévu le {new Date((pro as any).pendingPlanChange.effectiveDate).toLocaleDateString("fr-FR")}
+                    </p>
                   )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Zone dangereuse */}
-          <div className="card p-8 border border-red-100">
-            <h2 className="text-lg font-bold text-red-700 mb-1 flex items-center gap-2">
-              <Shield className="w-5 h-5" /> Zone critique
-            </h2>
-            <p className="text-sm text-gray-500 mb-6">Ces actions sont irréversibles ou affectent la visibilité de votre fiche.</p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setConfirmAction("suspend")}
-                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-orange-300 text-orange-700 hover:bg-orange-50 transition-colors font-medium text-sm"
-              >
-                <EyeOff className="w-4 h-4" />
-                {pro.status === "suspended" ? "Réactiver ma fiche" : "Suspendre ma fiche"}
-              </button>
-              <button
-                onClick={() => setConfirmAction("delete")}
-                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-red-300 text-red-700 hover:bg-red-50 transition-colors font-medium text-sm"
-              >
-                <Trash2 className="w-4 h-4" /> Supprimer définitivement ma fiche
-              </button>
+          {/* Modale de paiement — commande d'une formule payante */}
+          {planOrderTarget && (
+            <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4" onClick={closePlanOrderModal}>
+              <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-bold text-landes-pine">Passer à la formule {PLANS.find(p => p.id === planOrderTarget)?.name}</p>
+                  <button onClick={closePlanOrderModal} className="text-gray-400 hover:text-gray-600">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {planOrderDone ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg p-4">
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                      <p className="text-sm text-green-700 font-medium">Formule activée avec succès !</p>
+                    </div>
+                    <button onClick={closePlanOrderModal} className="btn-secondary w-full py-2 text-sm">Fermer</button>
+                  </div>
+                ) : planOrderPreparing || !planOrderClientSecret ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Préparation du paiement sécurisé…
+                  </div>
+                ) : planOrderFinalizing ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Activation de votre formule…
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-gray-50 rounded-lg p-3 mb-4 flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Formule {PLANS.find(p => p.id === planOrderTarget)?.name}</span>
+                      <span className="font-semibold text-gray-900">{PLANS.find(p => p.id === planOrderTarget)?.price}€/mois</span>
+                    </div>
+                    <StripePaymentForm
+                      clientSecret={planOrderClientSecret}
+                      intentType="setup"
+                      submitLabel="Payer et activer ma formule"
+                      onSuccess={handlePlanOrderSuccess}
+                    />
+                  </>
+                )}
+              </div>
             </div>
+          )}
+
+          <ComplementaryOptionsManager
+            stripeCustomerId={(pro as any).stripeCustomerId}
+            email={pro.email}
+            companyName={pro.companyName}
+            siren={pro.siren}
+            onCustomerIdObtained={(customerId) => {
+              const updated = { ...pro, stripeCustomerId: customerId, updatedAt: new Date().toISOString() } as any;
+              saveProfessional(updated);
+              setPro(updated);
+            }}
+            onOptionActivated={(optionId) => {
+              // Corrige le décalage entre le statut réel (Stripe) et le champ
+              // local complementaryOptions, utilisé par le diaporama des
+              // encarts publicitaires sur les pages catégories/sous-catégories.
+              const current = (pro as any).complementaryOptions || [];
+              if (current.includes(optionId)) return;
+              const updated = { ...pro, complementaryOptions: [...current, optionId], updatedAt: new Date().toISOString() } as any;
+              saveProfessional(updated);
+              setPro(updated);
+            }}
+          />
+        </div>
+      )}
+
+      {/* ── TAB MES ABONNEMENTS ── */}
+      {activeTab === "subscriptions" && (
+        <div className="card p-8">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <h2 className="text-xl font-bold text-landes-pine bg-landes-forest/8 border-l-4 border-landes-forest px-4 py-3 rounded-r-lg">Mes abonnements</h2>
+            {(pro as any).stripeCustomerId && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => subscriptionManagerRef.current?.refresh()} className="text-xs text-gray-400 hover:text-landes-forest flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3" /> Actualiser
+                </button>
+                <button
+                  onClick={() => subscriptionManagerRef.current?.openCardModal()}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-landes-forest border border-landes-forest/40 px-3 py-1.5 rounded-lg hover:bg-landes-forest hover:text-white transition-colors"
+                >
+                  <CreditCard className="w-3.5 h-3.5" /> Changer de carte bancaire
+                </button>
+              </div>
+            )}
           </div>
+          {(pro as any).stripeCustomerId ? (
+            <SubscriptionManager ref={subscriptionManagerRef} customerId={(pro as any).stripeCustomerId} />
+          ) : (
+            <p className="text-sm text-gray-400">Aucun abonnement associé à votre fiche pour le moment.</p>
+          )}
         </div>
       )}
 

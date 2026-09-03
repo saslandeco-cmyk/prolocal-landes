@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Trash2, Eye, Edit3, Copy, FileText, ChevronDown,
-  Printer, ArrowLeft, Save, CheckCircle, X, ArrowRight,
+  Printer, ArrowLeft, Save, CheckCircle, X, ArrowRight, Loader2,
 } from "lucide-react";
 import {
   getDocumentsByPro, saveDocument, deleteDocument,
@@ -76,9 +76,11 @@ function makeDoc(pro: Professional, type: DocumentType, profile?: BillingProfile
       email:      p?.email        || pro.email,
       phone:      p?.phone        || pro.phone,
       siren:      p?.siren        || pro.siren,
+      siret:      p?.siret        || (pro as any).siret || "",
       legalForm:  p?.legalForm    || pro.legalForm,
       vatNumber:  p?.vatNumber    || "",
       rcs:        p?.rcs          || `RCS ${p?.city || pro.city}`,
+      rm:         p?.rm           || "",
       capital:    p?.capital      || "",
       ape:        p?.ape          || "",
     },
@@ -196,9 +198,17 @@ ${doc.type === "facture" ? `
 ${doc.notes ? `<div class="notes"><strong>Notes :</strong> ${doc.notes}</div>` : ""}
 ${doc.lines.every(l => Number(l.vatRate) === 0) ? `<div style="margin-top:14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;"><p style="font-size:10px;color:#92400e;font-style:italic;margin:0;">TVA non applicable, art. 293 B du Code général des impôts.</p></div>` : ""}
 <div class="footer">
-  <p>${doc.issuer.legalForm} ${doc.issuer.name} — SIREN ${doc.issuer.siren}${doc.issuer.rcs ? " — " + doc.issuer.rcs : ""}${doc.issuer.capital ? " — Capital " + doc.issuer.capital + " €" : ""}${doc.issuer.vatNumber ? " — TVA " + doc.issuer.vatNumber : ""}${doc.issuer.ape ? " — APE " + doc.issuer.ape : ""}</p>
-  ${doc.penalty ? `<p style="margin-top:4px">${doc.penalty}</p>` : ""}
-  ${doc.recoveryFee ? `<p>${doc.recoveryFee}</p>` : ""}
+  ${doc.penalty ? `<p>${doc.penalty}</p>` : ""}
+  ${doc.recoveryFee ? `<p style="margin-top:4px">${doc.recoveryFee}</p>` : ""}
+  <p style="margin-top:8px">
+    Dénomination sociale : ${doc.issuer.name}
+    — Forme juridique : ${doc.issuer.legalForm}
+    ${(doc.issuer.rcs || doc.issuer.rm) ? ` — RCS ou RM : ${doc.issuer.rcs || doc.issuer.rm}` : ""}
+    — SIREN ou SIRET : ${doc.issuer.siret || doc.issuer.siren}
+    ${doc.issuer.vatNumber ? ` — N° de TVA intracommunautaire : ${doc.issuer.vatNumber}` : ""}
+    ${doc.issuer.capital ? ` — Capital ${doc.issuer.capital} €` : ""}
+    ${doc.issuer.ape ? ` — APE ${doc.issuer.ape}` : ""}
+  </p>
 </div>
 </body></html>`);
     w.document.close();
@@ -312,10 +322,18 @@ ${doc.lines.every(l => Number(l.vatRate) === 0) ? `<div style="margin-top:14px;b
             </div>
           )}
           {/* Mentions légales */}
-          <div className="mt-6 pt-4 border-t border-gray-100 text-[10px] text-gray-400 space-y-0.5">
-            <p>{doc.issuer.legalForm} {doc.issuer.name} — SIREN {doc.issuer.siren}{doc.issuer.rcs ? ` — ${doc.issuer.rcs}` : ""}{doc.issuer.capital ? ` — Capital ${doc.issuer.capital} €` : ""}{doc.issuer.vatNumber ? ` — TVA ${doc.issuer.vatNumber}` : ""}{doc.issuer.ape ? ` — APE ${doc.issuer.ape}` : ""}</p>
+          <div className="mt-6 pt-4 border-t border-gray-100 text-[10px] text-gray-400 space-y-1">
             {doc.penalty && <p>{doc.penalty}</p>}
             {doc.recoveryFee && <p>{doc.recoveryFee}</p>}
+            <p className="pt-1">
+              Dénomination sociale : {doc.issuer.name}
+              {" — "}Forme juridique : {doc.issuer.legalForm}
+              {(doc.issuer.rcs || doc.issuer.rm) && <> — RCS ou RM : {doc.issuer.rcs || doc.issuer.rm}</>}
+              {" — "}SIREN ou SIRET : {doc.issuer.siret || doc.issuer.siren}
+              {doc.issuer.vatNumber && <> — N° de TVA intracommunautaire : {doc.issuer.vatNumber}</>}
+              {doc.issuer.capital && <> — Capital {doc.issuer.capital} €</>}
+              {doc.issuer.ape && <> — APE {doc.issuer.ape}</>}
+            </p>
           </div>
         </div>
       </div>
@@ -660,10 +678,43 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
   const [profileForm, setProfileForm] = useState<BillingProfile | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
+  const [docsLoading, setDocsLoading] = useState(true);
+  const [docsLoadError, setDocsLoadError] = useState(false);
 
-  const load = () => setDocs(getDocumentsByPro(pro.id).sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  ));
+  // ── Étape 5 de la migration base de données ──
+  // Charge en priorité depuis la base (devis/factures accessibles depuis
+  // n'importe quel appareil), avec repli automatique et silencieux sur
+  // localStorage si la base est indisponible ou pas encore alimentée pour
+  // ce professionnel.
+  const load = async () => {
+    setDocsLoading(true);
+    setDocsLoadError(false);
+
+    let allDocs: BillingDocument[] | null = null;
+    try {
+      const res = await fetch(`/api/db/documents?proId=${encodeURIComponent(pro.id)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.documents) && json.documents.length > 0) allDocs = json.documents;
+      }
+    } catch {
+      // Réseau indisponible ou base non configurée : repli silencieux ci-dessous
+    }
+
+    if (!allDocs) {
+      try {
+        allDocs = getDocumentsByPro(pro.id);
+      } catch {
+        setDocsLoadError(true);
+        setDocsLoading(false);
+        return;
+      }
+    }
+
+    setDocs(allDocs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    setDocsLoading(false);
+  };
 
   useEffect(() => {
     load();
@@ -713,6 +764,13 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
 
   const handleSaveProfile = () => {
     if (!profileForm) return;
+
+    const errs: Record<string, string> = {};
+    const isAutoOrEI = profileForm.legalForm === "Auto-entrepreneur" || profileForm.legalForm === "EI";
+    if (!isAutoOrEI && !profileForm.capital?.trim()) errs.capital = "Le capital social est requis pour cette forme juridique.";
+    setProfileErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
     saveBillingProfile(profileForm);
     setProfile(profileForm);
     setProfileSaved(true);
@@ -856,11 +914,11 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
               </span>
             )}
             {!profileEditing
-              ? <button onClick={() => setProfileEditing(true)} className="btn-secondary flex items-center gap-2 py-1.5 px-3 text-sm">
+              ? <button onClick={() => { setProfileEditing(true); setProfileErrors({}); }} className="btn-secondary flex items-center gap-2 py-1.5 px-3 text-sm">
                   <Edit3 className="w-3.5 h-3.5" /> Modifier
                 </button>
               : <div className="flex gap-2">
-                  <button onClick={() => { setProfileEditing(false); setProfileForm(profile); }} className="btn-secondary py-1.5 px-3 text-sm">Annuler</button>
+                  <button onClick={() => { setProfileEditing(false); setProfileForm(profile); setProfileErrors({}); }} className="btn-secondary py-1.5 px-3 text-sm">Annuler</button>
                   <button onClick={handleSaveProfile} className="btn-primary flex items-center gap-2 py-1.5 px-3 text-sm">
                     <Save className="w-3.5 h-3.5" /> Enregistrer
                   </button>
@@ -913,20 +971,38 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
                 <div>
                   <label className={labelCls}>RCS <span className="text-gray-400 font-normal">(commerçants)</span></label>
                   {profileEditing
-                    ? <input value={profileForm.rcs || ""} onChange={e => updProfile({ rcs: e.target.value })} className={inputCls} placeholder="RCS Mont-de-Marsan B 123 456 789" />
+                    ? <>
+                        <input value={profileForm.rcs || ""} onChange={e => { updProfile({ rcs: e.target.value }); setProfileErrors(p => ({ ...p, rcs: "" })); }} className={`${inputCls} ${profileErrors.rcs ? "border-red-400" : ""}`} placeholder="RCS Mont-de-Marsan B 123 456 789" />
+                        {profileErrors.rcs && <p className="text-red-500 text-xs mt-1">{profileErrors.rcs}</p>}
+                      </>
                     : <p className="text-sm text-gray-800 py-2">{profileForm.rcs || <span className="text-gray-400 italic">Facultatif</span>}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Répertoire des métiers <span className="text-gray-400 font-normal">(artisans)</span></label>
+                  <label className={labelCls}>Répertoire des métiers (RM) <span className="text-gray-400 font-normal">(artisans)</span></label>
                   {profileEditing
-                    ? <input value={profileForm.rm || ""} onChange={e => updProfile({ rm: e.target.value })} className={inputCls} placeholder="RM 123 456 789 00012" />
+                    ? <>
+                        <input value={profileForm.rm || ""} onChange={e => { updProfile({ rm: e.target.value }); setProfileErrors(p => ({ ...p, rm: "" })); }} className={`${inputCls} ${profileErrors.rm ? "border-red-400" : ""}`} placeholder="RM 123 456 789 00012" />
+                        {profileErrors.rm && <p className="text-red-500 text-xs mt-1">{profileErrors.rm}</p>}
+                      </>
                     : <p className="text-sm text-gray-800 py-2">{profileForm.rm || <span className="text-gray-400 italic">Facultatif</span>}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Capital social <span className="text-gray-400 font-normal">(SARL/SAS)</span></label>
+                  <label className={labelCls}>
+                    Capital social {!(profileForm.legalForm === "Auto-entrepreneur" || profileForm.legalForm === "EI") && "*"}
+                    <span className="text-gray-400 font-normal"> {(profileForm.legalForm === "Auto-entrepreneur" || profileForm.legalForm === "EI") ? "(non applicable)" : "(SARL/SAS)"}</span>
+                  </label>
                   {profileEditing
-                    ? <input value={profileForm.capital || ""} onChange={e => updProfile({ capital: e.target.value })} className={inputCls} placeholder="10 000" />
-                    : <p className="text-sm text-gray-800 py-2">{profileForm.capital ? `${profileForm.capital} €` : <span className="text-gray-400 italic">Facultatif</span>}</p>}
+                    ? <>
+                        <input
+                          value={profileForm.capital || ""}
+                          onChange={e => { updProfile({ capital: e.target.value }); setProfileErrors(p => ({ ...p, capital: "" })); }}
+                          disabled={profileForm.legalForm === "Auto-entrepreneur" || profileForm.legalForm === "EI"}
+                          className={`${inputCls} ${profileErrors.capital ? "border-red-400" : ""} disabled:bg-gray-50 disabled:text-gray-400`}
+                          placeholder="10 000"
+                        />
+                        {profileErrors.capital && <p className="text-red-500 text-xs mt-1">{profileErrors.capital}</p>}
+                      </>
+                    : <p className="text-sm text-gray-800 py-2">{profileForm.capital ? `${profileForm.capital} €` : <span className="text-gray-400 italic">Non renseigné</span>}</p>}
                 </div>
               </div>
             </div>
@@ -1004,12 +1080,6 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
                   {profileEditing
                     ? <input value={profileForm.phone} onChange={e => updProfile({ phone: e.target.value })} className={inputCls} />
                     : <p className="text-sm text-gray-800 py-2">{profileForm.phone}</p>}
-                </div>
-                <div>
-                  <label className={labelCls}>Site internet</label>
-                  {profileEditing
-                    ? <input value={profileForm.website || ""} onChange={e => updProfile({ website: e.target.value })} className={inputCls} placeholder="https://mon-site.fr" />
-                    : <p className="text-sm text-gray-800 py-2">{profileForm.website || <span className="text-gray-400 italic">Facultatif</span>}</p>}
                 </div>
               </div>
             </div>
@@ -1097,7 +1167,19 @@ export default function FacturationTab({ pro, infoOnly = false, docsOnly = false
           ))}
         </div>
 
-        {filtered.length === 0 ? (
+        {docsLoadError ? (
+          <div className="text-center py-10">
+            <p className="font-medium text-landes-pine mb-1">Impossible de charger vos documents</p>
+            <p className="text-sm text-gray-500 mb-4">Vérifiez votre connexion internet et réessayez.</p>
+            <button onClick={() => load()} className="btn-primary inline-flex items-center gap-2">
+              <Loader2 className="w-4 h-4" /> Réessayer
+            </button>
+          </div>
+        ) : docsLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="w-6 h-6 animate-spin text-landes-forest" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
             <FileText className="w-10 h-10 mx-auto mb-3 opacity-40" />
             <p className="font-medium">Aucun document</p>

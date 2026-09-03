@@ -2,11 +2,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Search, MapPin, ArrowRight, ChevronRight, X, TrendingUp } from "lucide-react";
+import { Search, MapPin, ArrowRight, ChevronRight, X, TrendingUp, Loader2, LocateFixed } from "lucide-react";
 import { DEFAULT_BANNERS } from "@/lib/defaultBanners";
 import { getProfessionalsWithImages } from "@/lib/storage";
+import { getListingRank } from "@/lib/listingOrder";
 import { Professional, SUBCATEGORIES } from "@/types";
 import ProfessionalCard from "@/components/professional/ProfessionalCard";
+import HeroPubSlideshow from "@/components/ui/HeroPubSlideshow";
 
 const MultiMap = dynamic(() => import("@/components/map/MultiMap"), { ssr: false });
 
@@ -41,6 +43,50 @@ export default function CategoryPage({ meta }: Props) {
   const cityRef  = useRef<HTMLDivElement>(null);
   const now = useRef(new Date().toISOString()).current;
 
+  // Géolocalisation "Autour de moi"
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError,   setGeoError]   = useState("");
+  const [userLat,    setUserLat]    = useState<number | null>(null);
+  const [userLng,    setUserLng]    = useState<number | null>(null);
+  const [radius,     setRadius]     = useState<number>(25);
+  const [showRadius, setShowRadius] = useState(false);
+  const radiusRef = useRef<HTMLDivElement>(null);
+
+  const haversine = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLng/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  };
+
+  const handleGeolocate = useCallback(() => {
+    if (!navigator.geolocation) { setGeoError("Géolocalisation non supportée"); return; }
+    setGeoLoading(true);
+    setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setUserLat(pos.coords.latitude);
+        setUserLng(pos.coords.longitude);
+        setLocation("📍 Ma position");
+        setGeoLoading(false);
+        setShowRadius(true);
+      },
+      () => {
+        setGeoError("Position non disponible");
+        setGeoLoading(false);
+      },
+      { timeout: 8000 }
+    );
+  }, []);
+
+  const clearGeo = useCallback(() => {
+    setUserLat(null);
+    setUserLng(null);
+    setLocation("");
+    setShowRadius(false);
+  }, []);
+
   const POPULAR_CAT = ["Artisan", "Boutique", "Devis gratuit", "Sur-mesure", "Livraison", "Local"];
   const LANDES_CITIES = [
     "Mont-de-Marsan","Dax","Biscarrosse","Capbreton","Hossegor",
@@ -59,8 +105,7 @@ export default function CategoryPage({ meta }: Props) {
         if (!merged.find(p => p.id === d.id))
           merged.push({ ...d, createdAt: now, updatedAt: now });
       });
-      const order: Record<string, number> = { gold: 0, premium: 1, standard: 2 };
-      merged.sort((a, b) => order[a.plan] - order[b.plan]);
+      merged.sort((a, b) => getListingRank(a) - getListingRank(b));
       setPros(merged);
       setFiltered(merged);
       setMapLoaded(true);
@@ -93,6 +138,7 @@ export default function CategoryPage({ meta }: Props) {
     const handler = (e: MouseEvent) => {
       if (!queryRef.current?.contains(e.target as Node)) setShowSug(false);
       if (!cityRef.current?.contains(e.target as Node))  setShowCity(false);
+      if (!radiusRef.current?.contains(e.target as Node)) setShowRadius(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -111,22 +157,38 @@ export default function CategoryPage({ meta }: Props) {
         (p.city ?? "").toLowerCase().includes(qLow) ||
         svcs.includes(qLow)
       );
-      const matchLoc = !locLow || (
-        (p.city ?? "").toLowerCase().includes(locLow) ||
-        (p.postalCode ?? "").includes(locLow)
-      );
+      // Géolocalisation active : filtre par distance plutôt que par texte
+      const matchLoc = (userLat !== null && userLng !== null)
+        ? (p.lat != null && p.lng != null && haversine(userLat, userLng, p.lat, p.lng) <= radius)
+        : (!locLow || (
+            (p.city ?? "").toLowerCase().includes(locLow) ||
+            (p.postalCode ?? "").includes(locLow)
+          ));
       const matchSub = !sub || p.subcategory === sub;
       return matchQ && matchLoc && matchSub;
+    }).sort((a, b) => {
+      // Tri par distance croissante quand la géolocalisation est active
+      if (userLat !== null && userLng !== null && a.lat != null && a.lng != null && b.lat != null && b.lng != null) {
+        const dA = haversine(userLat, userLng, a.lat, a.lng);
+        const dB = haversine(userLat, userLng, b.lat, b.lng);
+        if (dA !== dB) return dA - dB;
+      }
+      return getListingRank(a) - getListingRank(b);
     }));
-  }, [pros]);
+  }, [pros, userLat, userLng, radius]);
 
   const handleSearch = useCallback((q: string) => {
-    setQuery(q); applyFilter(q, location, activeSub);
-  }, [applyFilter, location, activeSub]);
+    setQuery(q); // Saisie uniquement : les résultats ne sont mis à jour qu'au clic sur "Rechercher"
+  }, []);
 
   const handleLocation = useCallback((loc: string) => {
-    setLocation(loc); applyFilter(query, loc, activeSub);
-  }, [applyFilter, query, activeSub]);
+    setLocation(loc); // Saisie uniquement : les résultats ne sont mis à jour qu'au clic sur "Rechercher"
+    if (userLat !== null) { setUserLat(null); setUserLng(null); setShowRadius(false); }
+  }, [userLat]);
+
+  const runSearch = useCallback(() => {
+    applyFilter(query, location, activeSub);
+  }, [applyFilter, query, location, activeSub]);
 
   const handleSubClick = useCallback((sub: string) => {
     const next = activeSub === sub ? null : sub;
@@ -179,29 +241,35 @@ export default function CategoryPage({ meta }: Props) {
               </Link>
             </div>
 
-            {/* RIGHT — image bannière ou emoji + compteur */}
+            {/* RIGHT — diaporama des encarts publicitaires ciblés de cette catégorie
+                (ou image bannière par défaut / compteur si aucun encart actif) */}
             <div className="hidden lg:block">
-              {DEFAULT_BANNERS[meta.category] ? (
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={DEFAULT_BANNERS[meta.category]} alt={meta.category} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                  <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-white text-center">
-                    <p className="text-2xl font-bold">{pros.length}</p>
-                    <p className="text-xs text-white/70">professionnel{pros.length > 1 ? "s" : ""}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-6">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-3xl px-14 py-10 border border-white/20 flex flex-col items-center gap-4">
-                    <div className="text-8xl select-none">{meta.emoji}</div>
-                    <div className="text-center border-t border-white/20 pt-5 w-full">
-                      <p className="text-5xl font-bold text-white">{pros.length}</p>
-                      <p className="text-gray-300 text-sm mt-1">professionnel{pros.length > 1 ? "s" : ""} référencé{pros.length > 1 ? "s" : ""}</p>
+              <HeroPubSlideshow
+                category={meta.category}
+                fallback={
+                  DEFAULT_BANNERS[meta.category] ? (
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                      <img src={DEFAULT_BANNERS[meta.category]} alt={meta.category} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                      <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-white text-center">
+                        <p className="text-2xl font-bold">{pros.length}</p>
+                        <p className="text-xs text-white/70">professionnel{pros.length > 1 ? "s" : ""}</p>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-white/40 text-xs text-center max-w-xs">Mise à jour en temps réel · Landes (40)</p>
-                </div>
-              )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-6">
+                      <div className="bg-white/10 backdrop-blur-sm rounded-3xl px-14 py-10 border border-white/20 flex flex-col items-center gap-4">
+                        <div className="text-8xl select-none">{meta.emoji}</div>
+                        <div className="text-center border-t border-white/20 pt-5 w-full">
+                          <p className="text-5xl font-bold text-white">{pros.length}</p>
+                          <p className="text-gray-300 text-sm mt-1">professionnel{pros.length > 1 ? "s" : ""} référencé{pros.length > 1 ? "s" : ""}</p>
+                        </div>
+                      </div>
+                      <p className="text-white/40 text-xs text-center max-w-xs">Mise à jour en temps réel · Landes (40)</p>
+                    </div>
+                  )
+                }
+              />
             </div>
           </div>
 
@@ -245,7 +313,7 @@ export default function CategoryPage({ meta }: Props) {
 
           {/* Formulaire de recherche — sous la carte */}
           <div className="mt-4 sm:mt-6">
-            <form onSubmit={e => { e.preventDefault(); document.getElementById("resultats")?.scrollIntoView({ behavior: "smooth" }); }} className="w-full bg-white rounded-2xl shadow-2xl overflow-visible">
+            <form onSubmit={e => { e.preventDefault(); runSearch(); setTimeout(() => document.getElementById("resultats")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }} className="w-full bg-white rounded-2xl shadow-2xl overflow-visible">
               <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
                 <div className="flex-1 relative" ref={queryRef}>
                   <div className="flex items-center gap-2 sm:gap-3 px-4 py-3 sm:px-5 sm:py-4">
@@ -301,6 +369,55 @@ export default function CategoryPage({ meta }: Props) {
                           <span className="text-sm text-gray-700" dangerouslySetInnerHTML={{ __html: c.replace(new RegExp(`(${location})`, "gi"), "<strong>$1</strong>") }} />
                         </button>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Bouton Autour de moi */}
+                <div className="relative flex-shrink-0" ref={radiusRef}>
+                  {userLat === null ? (
+                    <button
+                      type="button"
+                      onClick={handleGeolocate}
+                      disabled={geoLoading}
+                      title="Autour de moi"
+                      className="flex items-center justify-center gap-1.5 px-4 py-3 sm:px-5 sm:py-4 text-sm text-landes-forest hover:bg-landes-forest/5 transition-colors whitespace-nowrap disabled:opacity-50 w-full sm:w-auto"
+                    >
+                      {geoLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <LocateFixed className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      <span className="hidden sm:inline">Autour de moi</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowRadius(!showRadius)}
+                      className="flex items-center justify-center gap-1.5 px-4 py-3 sm:px-5 sm:py-4 text-sm text-landes-forest bg-landes-forest/5 whitespace-nowrap w-full sm:w-auto"
+                    >
+                      <LocateFixed className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>{radius} km</span>
+                    </button>
+                  )}
+                  {geoError && (
+                    <p className="absolute top-full left-0 mt-1 text-xs text-red-500 whitespace-nowrap">{geoError}</p>
+                  )}
+                  {showRadius && userLat !== null && (
+                    <div className="absolute top-full right-0 sm:left-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-lg z-50 overflow-hidden min-w-[160px]">
+                      {[5, 10, 25, 50, 100].map(r => (
+                        <button
+                          key={r}
+                          type="button"
+                          onMouseDown={() => { setRadius(r); setShowRadius(false); }}
+                          className={`w-full text-left px-4 py-2.5 text-sm hover:bg-landes-forest/5 transition-colors ${radius === r ? "text-landes-forest font-semibold" : "text-gray-700"}`}
+                        >
+                          Dans un rayon de {r} km
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onMouseDown={clearGeo}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors border-t border-gray-100"
+                      >
+                        Désactiver la géolocalisation
+                      </button>
                     </div>
                   )}
                 </div>
@@ -374,7 +491,7 @@ export default function CategoryPage({ meta }: Props) {
             <p className="text-gray-500 text-sm mb-6">
               Aucun professionnel ne correspond à « {query} » dans les Landes.
             </p>
-            <button onClick={() => handleSearch("")} className="btn-secondary py-2.5 px-6 text-sm">
+            <button onClick={() => { setQuery(""); applyFilter("", location, activeSub); }} className="btn-secondary py-2.5 px-6 text-sm">
               Voir tous les professionnels
             </button>
           </div>
