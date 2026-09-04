@@ -38,10 +38,6 @@ export default function CategoryPage({ meta }: Props) {
   const [showSug,  setShowSug]    = useState(false);
   const [showCity, setShowCity]   = useState(false);
   const [activeSub, setActiveSub] = useState<string | null>(null);
-  // Entreprises issues du répertoire SIRENE dans cette catégorie, pas encore
-  // inscrites sur Prolocal-Landes (voir /admin → Entreprises (SIRENE)).
-  const [sireneEntreprises, setSireneEntreprises] = useState<any[]>([]);
-  const [sireneLoaded, setSireneLoaded] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const queryRef = useRef<HTMLDivElement>(null);
   const cityRef  = useRef<HTMLDivElement>(null);
@@ -113,25 +109,6 @@ export default function CategoryPage({ meta }: Props) {
       setPros(merged);
       setFiltered(merged);
       setMapLoaded(true);
-
-      // Entreprises SIRENE de cette catégorie, non encore inscrites sur le
-      // site (dédoublonnage simple par nom pour éviter d'afficher deux fois
-      // une même entreprise qui aurait déjà revendiqué/créé sa fiche).
-      try {
-        const res = await fetch(`/api/entreprises?category=${encodeURIComponent(meta.category)}&perPage=12`);
-        if (res.ok) {
-          const data = await res.json();
-          const registeredNames = new Set(merged.map(p => (p.companyName || "").toLowerCase().trim()));
-          const filtered = (data.entreprises || []).filter((e: any) =>
-            !registeredNames.has((e.denomination || e.enseigne || "").toLowerCase().trim())
-          );
-          setSireneEntreprises(filtered);
-        }
-      } catch {
-        // Silencieux : section simplement absente si l'API n'est pas disponible
-      } finally {
-        setSireneLoaded(true);
-      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta.category]);
@@ -517,34 +494,6 @@ export default function CategoryPage({ meta }: Props) {
             <button onClick={() => { setQuery(""); applyFilter("", location, activeSub); }} className="btn-secondary py-2.5 px-6 text-sm">
               Voir tous les professionnels
             </button>
-          </div>
-        )}
-
-        {/* Entreprises SIRENE non encore inscrites — issues de la synchro
-            quotidienne (voir /admin → Entreprises (SIRENE)) */}
-        {sireneLoaded && sireneEntreprises.length > 0 && (
-          <div className="mt-10 sm:mt-14">
-            <p className="text-sm font-semibold text-landes-sage uppercase tracking-wider mb-1">Autres entreprises du secteur</p>
-            <h2 className="text-lg sm:text-xl font-bold text-landes-pine mb-1">
-              Entreprises {meta.category} référencées au répertoire SIRENE
-            </h2>
-            <p className="text-sm text-gray-500 mb-5">
-              Ces entreprises ne sont pas encore inscrites sur Prolocal-Landes — coordonnées limitées jusqu'à ce qu'elles créent leur fiche.
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sireneEntreprises.map((e: any) => (
-                <Link
-                  key={e.siret}
-                  href={`/entreprises/${(e.commune || "landes").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}/${(e.denomination || e.enseigne || "entreprise").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${e.siret}`}
-                  className="card p-4 hover:border-landes-sage transition-colors"
-                >
-                  <p className="font-semibold text-sm text-gray-800 truncate">{e.denomination || e.enseigne}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 truncate">{e.libelleApe}</p>
-                  <p className="text-xs text-gray-400 mt-1">{e.commune} ({e.codePostal})</p>
-                  <span className="inline-block mt-2 text-[10px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Non inscrite</span>
-                </Link>
-              ))}
-            </div>
           </div>
         )}
 
