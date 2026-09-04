@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare, Info, Download, Upload, Settings2, UserX, UserCheck, Database, CreditCard, Plus } from "lucide-react";
+import { LogOut, Users, CheckCircle, Clock, XCircle, Trash2, Eye, EyeOff, Search, Filter, Edit3, Save, X, Loader2, Shield, Star, Flag, MessageSquare, Info, Download, Upload, Settings2, UserX, UserCheck, Database, CreditCard, Plus, Building2, RefreshCw } from "lucide-react";
 import { checkAdminCredentials, setSession, getSession, clearSession, getProfessionals, getProfessionalsWithImages, saveProfessional, deleteProfessional, getReviews, saveReview, deleteReview, generateId, getHeroSlideshowIds, saveHeroSlideshowIds } from "@/lib/storage";
 import { Professional, CATEGORIES, SUBCATEGORIES, PLANS, StatusType, Review } from "@/types";
 import PlanBadge from "@/components/ui/PlanBadge";
@@ -75,6 +75,288 @@ function AdminImageUploader({ label, value, onChange, aspect = "square" }: {
       </div>
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
         onChange={e => handleFile(e.target.files?.[0])} />
+    </div>
+  );
+}
+
+// ── Gestion de la base entreprises SIRENE (codes APE suivis, synchro
+// manuelle, historique, recherche, enrichissement, import CSV) ──
+function SireneManager() {
+  const [watchedCodes, setWatchedCodes] = useState<{ codeApe: string; libelle: string | null }[]>([]);
+  const [newCode, setNewCode] = useState("");
+  const [newLibelle, setNewLibelle] = useState("");
+  const [syncLogs, setSyncLogs] = useState<any[]>([]);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [totalGlobal, setTotalGlobal] = useState(0);
+
+  const [searchQ, setSearchQ] = useState("");
+  const [searchApe, setSearchApe] = useState("");
+  const [entreprises, setEntreprises] = useState<any[]>([]);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchTotalPages, setSearchTotalPages] = useState(1);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const [enrichingId, setEnrichingId] = useState<string | null>(null);
+  const [enrichForm, setEnrichForm] = useState({ telephone: "", email: "", siteWeb: "" });
+
+  const [csvFile, setCsvFile] = useState<string | null>(null);
+  const [csvFileName, setCsvFileName] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  const loadWatchedCodes = async () => {
+    const res = await fetch("/api/admin/sirene/watched-codes");
+    const data = await res.json();
+    setWatchedCodes(data.codes || []);
+  };
+
+  const loadSyncLogs = async () => {
+    const res = await fetch("/api/admin/sirene/sync-log");
+    const data = await res.json();
+    setSyncLogs(data.logs || []);
+  };
+
+  const runSearch = async (page = 1) => {
+    setSearchLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (searchQ) params.set("q", searchQ);
+      if (searchApe) params.set("codeApe", searchApe);
+      params.set("page", String(page));
+      const res = await fetch(`/api/admin/sirene/list?${params.toString()}`);
+      const data = await res.json();
+      setEntreprises(data.entreprises || []);
+      setSearchPage(data.page || 1);
+      setSearchTotalPages(data.totalPages || 1);
+      setTotalGlobal(data.totalGlobal || 0);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  useEffect(() => { loadWatchedCodes(); loadSyncLogs(); runSearch(1); }, []);
+
+  const handleAddCode = async () => {
+    if (!newCode.trim()) return;
+    await fetch("/api/admin/sirene/watched-codes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ codeApe: newCode.trim(), libelle: newLibelle.trim() || undefined }),
+    });
+    setNewCode(""); setNewLibelle("");
+    loadWatchedCodes();
+  };
+
+  const handleRemoveCode = async (code: string) => {
+    await fetch(`/api/admin/sirene/watched-codes/${encodeURIComponent(code)}`, { method: "DELETE" });
+    loadWatchedCodes();
+  };
+
+  const handleSyncNow = async () => {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/api/admin/sirene/sync-now", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json();
+      if (data.error) { setSyncResult(`❌ ${data.error}`); return; }
+      setSyncResult(`✅ ${data.totalInserted} créés, ${data.totalUpdated} mis à jour, ${data.totalUnchanged} inchangés (${data.codesApe?.length || 0} code(s) APE, ${Math.round(data.durationMs / 1000)}s).`);
+      loadSyncLogs();
+      runSearch(1);
+    } catch {
+      setSyncResult("❌ Erreur réseau lors de la synchronisation.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const startEnrich = (e: any) => {
+    setEnrichingId(e.siret);
+    setEnrichForm({ telephone: e.telephone || "", email: e.email || "", siteWeb: e.siteWeb || "" });
+  };
+
+  const saveEnrich = async () => {
+    if (!enrichingId) return;
+    await fetch("/api/admin/sirene/enrich", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ siret: enrichingId, ...enrichForm }),
+    });
+    setEnrichingId(null);
+    runSearch(searchPage);
+  };
+
+  const handleCsvFile = (file: File) => {
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setCsvFile(reader.result as string);
+    reader.readAsText(file);
+  };
+
+  const handleImportCsv = async () => {
+    if (!csvFile) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await fetch("/api/admin/sirene/import-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv: csvFile }),
+      });
+      const data = await res.json();
+      if (data.error) { setImportResult(`❌ ${data.error}`); return; }
+      setImportResult(`✅ ${data.matched}/${data.total} établissements enrichis. ${data.notFound > 0 ? `${data.notFound} SIRET introuvables en base.` : ""}`);
+      setCsvFile(null); setCsvFileName("");
+      runSearch(searchPage);
+    } catch {
+      setImportResult("❌ Erreur réseau lors de l'import.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Codes APE suivis */}
+      <div className="card p-6">
+        <h2 className="text-lg font-bold text-landes-pine mb-1">Codes APE suivis</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Le cron quotidien (et le bouton "Synchroniser maintenant" ci-dessous) synchronisent automatiquement
+          tous les établissements actifs du département 40 pour ces codes APE.
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {watchedCodes.length === 0 && <p className="text-sm text-gray-400">Aucun code APE suivi pour le moment.</p>}
+          {watchedCodes.map(c => (
+            <span key={c.codeApe} className="inline-flex items-center gap-2 bg-landes-forest/8 text-landes-pine text-sm font-medium px-3 py-1.5 rounded-full">
+              {c.codeApe} {c.libelle && <span className="text-gray-500 font-normal">— {c.libelle}</span>}
+              <button onClick={() => handleRemoveCode(c.codeApe)} className="text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Code APE (ex: 43.21A)" className="input-field text-sm w-48" />
+          <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)} placeholder="Libellé (facultatif)" className="input-field text-sm flex-1 min-w-[180px]" />
+          <button onClick={handleAddCode} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"><Plus className="w-4 h-4" /> Ajouter</button>
+        </div>
+      </div>
+
+      {/* Synchronisation */}
+      <div className="card p-6">
+        <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-landes-pine">Synchronisation</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{totalGlobal} établissement{totalGlobal > 1 ? "s" : ""} actif{totalGlobal > 1 ? "s" : ""} en base.</p>
+          </div>
+          <button onClick={handleSyncNow} disabled={syncing || watchedCodes.length === 0} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {syncing ? "Synchronisation…" : "Synchroniser maintenant"}
+          </button>
+        </div>
+        {syncResult && <p className="text-sm bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4">{syncResult}</p>}
+
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Historique des synchronisations</p>
+        {syncLogs.length === 0 ? (
+          <p className="text-sm text-gray-400">Aucune synchronisation effectuée pour le moment.</p>
+        ) : (
+          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 overflow-hidden">
+            {syncLogs.map(log => (
+              <div key={log.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${log.status === "success" ? "bg-green-500" : log.status === "error" ? "bg-red-500" : "bg-amber-400"}`} />
+                <span className="text-gray-500 w-40 flex-shrink-0">{new Date(log.started_at).toLocaleString("fr-FR")}</span>
+                <span className="flex-1 text-gray-700">
+                  {log.status === "error" ? log.error_message : `${log.total_inserted} créés, ${log.total_updated} mis à jour, ${log.total_unchanged} inchangés`}
+                </span>
+                <span className="text-gray-400 text-xs flex-shrink-0">{(log.codes_ape || []).join(", ")}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Import CSV d'enrichissement */}
+      <div className="card p-6">
+        <h2 className="text-lg font-bold text-landes-pine mb-1">Import CSV — enrichissement</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Complète le téléphone, l&apos;email et le site web d&apos;établissements déjà présents en base
+          (colonnes attendues : <code className="bg-gray-100 px-1 rounded">siret</code>, <code className="bg-gray-100 px-1 rounded">telephone</code>, <code className="bg-gray-100 px-1 rounded">email</code>, <code className="bg-gray-100 px-1 rounded">site_web</code>).
+          N&apos;ajoute jamais de nouvel établissement — seule la synchronisation SIRENE le fait.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => csvInputRef.current?.click()} className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm">
+            <Upload className="w-4 h-4" /> {csvFileName || "Choisir un fichier CSV"}
+          </button>
+          <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleCsvFile(f); }} />
+          {csvFile && (
+            <button onClick={handleImportCsv} disabled={importing} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+              {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null} {importing ? "Import…" : "Importer"}
+            </button>
+          )}
+        </div>
+        {importResult && <p className="text-sm bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mt-3">{importResult}</p>}
+      </div>
+
+      {/* Recherche / enrichissement individuel */}
+      <div className="card p-6">
+        <h2 className="text-lg font-bold text-landes-pine mb-4">Rechercher une entreprise</h2>
+        <div className="flex flex-wrap gap-2 mb-4">
+          <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Nom, enseigne…" className="input-field text-sm flex-1 min-w-[180px]" />
+          <input value={searchApe} onChange={e => setSearchApe(e.target.value)} placeholder="Code APE" className="input-field text-sm w-40" />
+          <button onClick={() => runSearch(1)} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"><Search className="w-4 h-4" /> Rechercher</button>
+        </div>
+
+        {searchLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-landes-forest" /></div>
+        ) : entreprises.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-8">Aucun résultat.</p>
+        ) : (
+          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50">
+            {entreprises.map(e => (
+              <div key={e.siret} className="px-4 py-3">
+                {enrichingId === e.siret ? (
+                  <div className="space-y-2">
+                    <p className="font-semibold text-sm text-gray-800">{e.denomination || e.enseigne}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input value={enrichForm.telephone} onChange={ev => setEnrichForm(f => ({ ...f, telephone: ev.target.value }))} placeholder="Téléphone" className="input-field text-sm" />
+                      <input value={enrichForm.email} onChange={ev => setEnrichForm(f => ({ ...f, email: ev.target.value }))} placeholder="Email" className="input-field text-sm" />
+                      <input value={enrichForm.siteWeb} onChange={ev => setEnrichForm(f => ({ ...f, siteWeb: ev.target.value }))} placeholder="Site web" className="input-field text-sm" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={saveEnrich} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"><Save className="w-3.5 h-3.5" /> Enregistrer</button>
+                      <button onClick={() => setEnrichingId(null)} className="btn-secondary text-xs px-3 py-1.5">Annuler</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-800 truncate">{e.denomination || e.enseigne || "—"}</p>
+                      <p className="text-xs text-gray-400">{e.siret} · {e.codeApe} · {e.commune}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {e.telephone || <span className="text-gray-300">Tél. non renseigné</span>}
+                        {" · "}
+                        {e.email || <span className="text-gray-300">Email non renseigné</span>}
+                        {" · "}
+                        {e.siteWeb || <span className="text-gray-300">Site non renseigné</span>}
+                      </p>
+                    </div>
+                    <button onClick={() => startEnrich(e)} className="p-1.5 rounded-lg text-gray-400 hover:text-landes-forest hover:bg-landes-forest/5 flex-shrink-0">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {searchTotalPages > 1 && (
+          <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+            <button onClick={() => runSearch(searchPage - 1)} disabled={searchPage <= 1} className="text-landes-forest disabled:text-gray-300">← Précédent</button>
+            <span className="text-gray-500">Page {searchPage} / {searchTotalPages}</span>
+            <button onClick={() => runSearch(searchPage + 1)} disabled={searchPage >= searchTotalPages} className="text-landes-forest disabled:text-gray-300">Suivant →</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -487,7 +769,7 @@ export default function AdminPage() {
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(ALL_COLUMN_LABELS));
   const [migrating, setMigrating] = useState(false);
   const [migrationSummary, setMigrationSummary] = useState<string | null>(null);
-  const [adminSection, setAdminSection] = useState<"pros" | "reviews" | "site" | "options">("pros");
+  const [adminSection, setAdminSection] = useState<"pros" | "reviews" | "site" | "options" | "sirene">("pros");
   const [editReview, setEditReview] = useState<Review | null>(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<StatusType | "">("");
@@ -755,7 +1037,18 @@ export default function AdminPage() {
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${adminSection === "options" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
           <CreditCard className="w-4 h-4" /> Options complémentaires
         </button>
+        <button onClick={() => setAdminSection("sirene")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${adminSection === "sirene" ? "bg-landes-forest text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+          <Building2 className="w-4 h-4" /> Entreprises (SIRENE)
+        </button>
       </div>
+
+      {/* ── Section Entreprises SIRENE ── */}
+      {adminSection === "sirene" && (
+        <div className="space-y-6">
+          <SireneManager />
+        </div>
+      )}
 
       {/* ── Section Options complémentaires ── */}
       {adminSection === "options" && (
