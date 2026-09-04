@@ -33,10 +33,12 @@ export async function GET(req: NextRequest) {
     const codesApe = codeApeParam ? codeApeParam.split(",").map(c => c.trim()).filter(Boolean) : undefined;
     const commune = params.get("commune") || undefined;
     const codePostal = params.get("codePostal") || undefined;
+    const category = params.get("category") || undefined;
+    const subcategory = params.get("subcategory") || undefined;
     const page = params.get("page") ? parseInt(params.get("page")!, 10) : 1;
     const perPage = params.get("perPage") ? parseInt(params.get("perPage")!, 10) : 25;
 
-    const result = await searchEntreprises({ q, codesApe, commune, codePostal, page, perPage });
+    const result = await searchEntreprises({ q, codesApe, commune, codePostal, category, subcategory, page, perPage });
     return NextResponse.json(result);
   } catch (err: any) {
     console.error("[api/entreprises GET] Erreur:", err);
