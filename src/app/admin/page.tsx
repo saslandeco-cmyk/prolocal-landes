@@ -85,6 +85,8 @@ function SireneManager() {
   const [watchedCodes, setWatchedCodes] = useState<{ codeApe: string; libelle: string | null }[]>([]);
   const [newCode, setNewCode] = useState("");
   const [newLibelle, setNewLibelle] = useState("");
+  const [addCodeError, setAddCodeError] = useState<string | null>(null);
+  const [addingCode, setAddingCode] = useState(false);
   const [syncLogs, setSyncLogs] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -139,14 +141,28 @@ function SireneManager() {
   useEffect(() => { loadWatchedCodes(); loadSyncLogs(); runSearch(1); }, []);
 
   const handleAddCode = async () => {
-    if (!newCode.trim()) return;
-    await fetch("/api/admin/sirene/watched-codes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ codeApe: newCode.trim(), libelle: newLibelle.trim() || undefined }),
-    });
-    setNewCode(""); setNewLibelle("");
-    loadWatchedCodes();
+    const code = newCode.trim();
+    if (!code) return;
+    setAddCodeError(null);
+    setAddingCode(true);
+    try {
+      const res = await fetch("/api/admin/sirene/watched-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codeApe: code, libelle: newLibelle.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        setAddCodeError(data.error || `Erreur ${res.status} lors de l'ajout du code APE.`);
+        return;
+      }
+      setNewCode(""); setNewLibelle("");
+      await loadWatchedCodes();
+    } catch {
+      setAddCodeError("Erreur réseau — impossible de contacter le serveur.");
+    } finally {
+      setAddingCode(false);
+    }
   };
 
   const handleRemoveCode = async (code: string) => {
@@ -235,10 +251,15 @@ function SireneManager() {
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Code APE (ex: 43.21A)" className="input-field text-sm w-48" />
+          <input value={newCode} onChange={e => { setNewCode(e.target.value); setAddCodeError(null); }} placeholder="Code APE (ex: 43.21A)" className="input-field text-sm w-48" />
           <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)} placeholder="Libellé (facultatif)" className="input-field text-sm flex-1 min-w-[180px]" />
-          <button onClick={handleAddCode} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm"><Plus className="w-4 h-4" /> Ajouter</button>
+          <button onClick={handleAddCode} disabled={addingCode} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+            {addingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Ajouter
+          </button>
         </div>
+        {addCodeError && (
+          <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-2">{addCodeError}</p>
+        )}
       </div>
 
       {/* Synchronisation */}
