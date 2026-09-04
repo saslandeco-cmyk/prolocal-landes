@@ -82,9 +82,11 @@ function AdminImageUploader({ label, value, onChange, aspect = "square" }: {
 // ── Gestion de la base entreprises SIRENE (codes APE suivis, synchro
 // manuelle, historique, recherche, enrichissement, import CSV) ──
 function SireneManager() {
-  const [watchedCodes, setWatchedCodes] = useState<{ codeApe: string; libelle: string | null }[]>([]);
+  const [watchedCodes, setWatchedCodes] = useState<{ codeApe: string; libelle: string | null; category: string | null; subcategory: string | null }[]>([]);
   const [newCode, setNewCode] = useState("");
   const [newLibelle, setNewLibelle] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [newSubcategory, setNewSubcategory] = useState("");
   const [addCodeError, setAddCodeError] = useState<string | null>(null);
   const [addingCode, setAddingCode] = useState(false);
   const [syncLogs, setSyncLogs] = useState<any[]>([]);
@@ -149,14 +151,19 @@ function SireneManager() {
       const res = await fetch("/api/admin/sirene/watched-codes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codeApe: code, libelle: newLibelle.trim() || undefined }),
+        body: JSON.stringify({
+          codeApe: code,
+          libelle: newLibelle.trim() || undefined,
+          category: newCategory || undefined,
+          subcategory: newSubcategory || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.error) {
         setAddCodeError(data.error || `Erreur ${res.status} lors de l'ajout du code APE.`);
         return;
       }
-      setNewCode(""); setNewLibelle("");
+      setNewCode(""); setNewLibelle(""); setNewCategory(""); setNewSubcategory("");
       await loadWatchedCodes();
     } catch {
       setAddCodeError("Erreur réseau — impossible de contacter le serveur.");
@@ -246,13 +253,28 @@ function SireneManager() {
           {watchedCodes.map(c => (
             <span key={c.codeApe} className="inline-flex items-center gap-2 bg-landes-forest/8 text-landes-pine text-sm font-medium px-3 py-1.5 rounded-full">
               {c.codeApe} {c.libelle && <span className="text-gray-500 font-normal">— {c.libelle}</span>}
+              {(c.category || c.subcategory) && (
+                <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                  {c.subcategory || c.category}
+                </span>
+              )}
               <button onClick={() => handleRemoveCode(c.codeApe)} className="text-gray-400 hover:text-red-500"><X className="w-3.5 h-3.5" /></button>
             </span>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <input value={newCode} onChange={e => { setNewCode(e.target.value); setAddCodeError(null); }} placeholder="Code APE (ex: 43.21A)" className="input-field text-sm w-48" />
-          <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)} placeholder="Libellé (facultatif)" className="input-field text-sm flex-1 min-w-[180px]" />
+          <input value={newCode} onChange={e => { setNewCode(e.target.value); setAddCodeError(null); }} placeholder="Code APE (ex: 43.21A)" className="input-field text-sm w-40" />
+          <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)} placeholder="Libellé (facultatif)" className="input-field text-sm flex-1 min-w-[160px]" />
+          <select value={newCategory} onChange={e => { setNewCategory(e.target.value); setNewSubcategory(""); }} className="input-field text-sm w-56">
+            <option value="">Catégorie (facultatif)</option>
+            {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+          {newCategory && SUBCATEGORIES[newCategory] && (
+            <select value={newSubcategory} onChange={e => setNewSubcategory(e.target.value)} className="input-field text-sm w-56">
+              <option value="">Sous-catégorie (facultatif)</option>
+              {SUBCATEGORIES[newCategory].map(sub => <option key={sub} value={sub}>{sub}</option>)}
+            </select>
+          )}
           <button onClick={handleAddCode} disabled={addingCode} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
             {addingCode ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Ajouter
           </button>
