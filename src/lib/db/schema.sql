@@ -175,12 +175,6 @@ CREATE TABLE IF NOT EXISTS entreprises_sirene (
   -- Rattachement optionnel à une fiche Prolocal-Landes déjà créée par le pro
   professional_id      TEXT REFERENCES professionals(id) ON DELETE SET NULL,
 
-  -- Ventilation dans les catégories/sous-catégories internes du site,
-  -- déduite automatiquement à la synchronisation depuis le code APE suivi
-  -- correspondant (voir sirene_watched_ape_codes.category/subcategory).
-  category             TEXT,
-  subcategory          TEXT,
-
   -- Données brutes complètes retournées par l'API, pour ne rien perdre
   -- même si ce schéma n'expose pas encore tous les champs.
   raw_data             JSONB,
@@ -232,18 +226,5 @@ CREATE TABLE IF NOT EXISTS sirene_sync_log (
 CREATE TABLE IF NOT EXISTS sirene_watched_ape_codes (
   code_ape      TEXT PRIMARY KEY,
   libelle       TEXT,
-  category      TEXT,   -- catégorie interne du site (voir CATEGORIES, src/types/index.ts)
-  subcategory   TEXT,   -- sous-catégorie interne du site (voir SUBCATEGORIES, src/types/index.ts)
   added_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- ── Migration additive : ventilation par catégorie/sous-catégorie ──
--- Si les tables ci-dessus existaient déjà (schéma exécuté avant cet ajout),
--- ces instructions ajoutent les nouvelles colonnes sans rien casser.
-ALTER TABLE sirene_watched_ape_codes ADD COLUMN IF NOT EXISTS category TEXT;
-ALTER TABLE sirene_watched_ape_codes ADD COLUMN IF NOT EXISTS subcategory TEXT;
-ALTER TABLE entreprises_sirene ADD COLUMN IF NOT EXISTS category TEXT;
-ALTER TABLE entreprises_sirene ADD COLUMN IF NOT EXISTS subcategory TEXT;
-
-CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_category ON entreprises_sirene (category);
-CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_subcategory ON entreprises_sirene (subcategory);
