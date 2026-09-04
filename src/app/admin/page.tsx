@@ -93,6 +93,10 @@ function SireneManager() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [totalGlobal, setTotalGlobal] = useState(0);
+  const [auditCounts, setAuditCounts] = useState({ historique: 0, syncLogs: 0 });
+  const [cleanupDays, setCleanupDays] = useState(90);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   const [searchQ, setSearchQ] = useState("");
   const [searchApe, setSearchApe] = useState("");
@@ -122,6 +126,34 @@ function SireneManager() {
     setSyncLogs(data.logs || []);
   };
 
+  const loadAuditCounts = async () => {
+    const res = await fetch("/api/admin/sirene/cleanup");
+    const data = await res.json();
+    setAuditCounts({ historique: data.historique || 0, syncLogs: data.syncLogs || 0 });
+  };
+
+  const handleCleanup = async () => {
+    if (!confirm(`Supprimer définitivement l'historique et les journaux de synchronisation de plus de ${cleanupDays} jours ? Les entreprises elles-mêmes ne sont jamais supprimées.`)) return;
+    setCleaning(true);
+    setCleanupResult(null);
+    try {
+      const res = await fetch("/api/admin/sirene/cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ daysToKeep: cleanupDays }),
+      });
+      const data = await res.json();
+      if (data.error) { setCleanupResult(`❌ ${data.error}`); return; }
+      setCleanupResult(`✅ ${data.historiqueDeleted} entrée${data.historiqueDeleted > 1 ? "s" : ""} d'historique et ${data.syncLogsDeleted} journal${data.syncLogsDeleted > 1 ? "aux" : ""} de synchronisation supprimés.`);
+      loadAuditCounts();
+      loadSyncLogs();
+    } catch {
+      setCleanupResult("❌ Erreur réseau lors du nettoyage.");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const runSearch = async (page = 1) => {
     setSearchLoading(true);
     try {
@@ -140,7 +172,7 @@ function SireneManager() {
     }
   };
 
-  useEffect(() => { loadWatchedCodes(); loadSyncLogs(); runSearch(1); }, []);
+  useEffect(() => { loadWatchedCodes(); loadSyncLogs(); loadAuditCounts(); runSearch(1); }, []);
 
   const handleAddCode = async () => {
     const code = newCode.trim();
@@ -320,6 +352,32 @@ function SireneManager() {
             ))}
           </div>
         )}
+
+        {/* Nettoyage de l'historique / journal de synchronisation */}
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Nettoyage de la base</p>
+          <p className="text-sm text-gray-500 mb-1">
+            {auditCounts.historique} entrée{auditCounts.historique > 1 ? "s" : ""} d&apos;historique, {auditCounts.syncLogs} journal{auditCounts.syncLogs > 1 ? "aux" : ""} de synchronisation en base.
+          </p>
+          <p className="text-xs text-gray-400 mb-3">
+            Un nettoyage automatique conserve déjà 90 jours à chaque synchronisation quotidienne. Utilisez ceci pour une purge manuelle avec une autre durée.
+            Ne supprime jamais les entreprises elles-mêmes.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-sm text-gray-600">Conserver les</label>
+            <input
+              type="number" min={1} value={cleanupDays}
+              onChange={e => setCleanupDays(Math.max(1, parseInt(e.target.value, 10) || 1))}
+              className="input-field text-sm w-20"
+            />
+            <label className="text-sm text-gray-600">derniers jours</label>
+            <button onClick={handleCleanup} disabled={cleaning} className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+              {cleaning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {cleaning ? "Nettoyage…" : "Nettoyer maintenant"}
+            </button>
+          </div>
+          {cleanupResult && <p className="text-sm bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mt-3">{cleanupResult}</p>}
+        </div>
       </div>
 
       {/* Import CSV d'enrichissement */}
