@@ -14,12 +14,18 @@ export interface EntrepriseRow {
   enseigne: string | null;
   codeApe: string | null;
   libelleApe: string | null;
+  codeApeNaf2025: string | null;
+  libelleApeNaf2025: string | null;
   estSiege: boolean;
   etatAdministratif: string;
+  dateCreation: string | null;
   adresse: string | null;
   codePostal: string | null;
   commune: string | null;
   departement: string;
+  lat: number | null;
+  lng: number | null;
+  trancheEffectif: string | null;
   telephone: string | null;
   email: string | null;
   siteWeb: string | null;
@@ -35,12 +41,18 @@ function rowToEntreprise(row: any): EntrepriseRow {
     enseigne: row.enseigne,
     codeApe: row.code_ape,
     libelleApe: row.libelle_ape,
+    codeApeNaf2025: row.code_ape_naf2025,
+    libelleApeNaf2025: row.libelle_ape_naf2025,
     estSiege: row.est_siege,
     etatAdministratif: row.etat_administratif,
+    dateCreation: row.date_creation,
     adresse: row.adresse,
     codePostal: row.code_postal,
     commune: row.commune,
     departement: row.departement,
+    lat: row.lat,
+    lng: row.lng,
+    trancheEffectif: row.tranche_effectif,
     telephone: row.telephone,
     email: row.email,
     siteWeb: row.site_web,
@@ -49,33 +61,49 @@ function rowToEntreprise(row: any): EntrepriseRow {
   };
 }
 
+export interface UpsertResult {
+  status: "inserted" | "updated" | "unchanged";
+  changes: { champ: string; ancienneValeur: string | null; nouvelleValeur: string | null }[];
+}
+
 /**
- * Upsert d'un établissement. Retourne "inserted" | "updated" | "unchanged"
- * pour permettre le suivi statistique de la synchronisation (étape 2).
+ * Upsert d'un établissement. Retourne le statut ("inserted" | "updated" |
+ * "unchanged") ainsi que le détail des champs modifiés, pour alimenter
+ * l'historique (entreprises_sirene_historique) avec de vraies valeurs
+ * avant/après plutôt qu'un simple horodatage.
  *
  * Le dédoublonnage SIREN/SIRET est garanti par la contrainte PRIMARY KEY
  * sur `siret` : deux appels avec le même SIRET mettent systématiquement à
  * jour la même ligne, jamais de doublon possible.
  */
-export async function upsertEtablissement(
-  etab: SireneEtablissement
-): Promise<"inserted" | "updated" | "unchanged"> {
-  if (!isDbConfigured) return "unchanged";
+export async function upsertEtablissement(etab: SireneEtablissement): Promise<UpsertResult> {
+  if (!isDbConfigured) return { status: "unchanged", changes: [] };
+
+  const TRACKED_FIELDS: [string, string, string | null][] = [
+    ["denomination", "denomination", etab.denomination],
+    ["code_ape", "codeApe", etab.codeApe],
+    ["etat_administratif", "etatAdministratif", etab.etatAdministratif],
+    ["adresse", "adresse", etab.adresse],
+    ["code_postal", "codePostal", etab.codePostal],
+    ["commune", "commune", etab.commune],
+    ["enseigne", "enseigne", etab.enseigne],
+  ];
 
   const { rows: existingRows } = await sql`
-    SELECT denomination, code_ape, etat_administratif, adresse, code_postal, commune
+    SELECT denomination, code_ape, etat_administratif, adresse, code_postal, commune, enseigne
     FROM entreprises_sirene WHERE siret = ${etab.siret}
   `;
   const existing = existingRows[0];
 
-  const changed = existing && (
-    existing.denomination !== etab.denomination ||
-    existing.code_ape !== etab.codeApe ||
-    existing.etat_administratif !== etab.etatAdministratif ||
-    existing.adresse !== etab.adresse ||
-    existing.code_postal !== etab.codePostal ||
-    existing.commune !== etab.commune
-  );
+  const changes: UpsertResult["changes"] = [];
+  if (existing) {
+    for (const [dbCol, , newVal] of TRACKED_FIELDS) {
+      const oldVal = existing[dbCol] ?? null;
+      if ((oldVal ?? null) !== (newVal ?? null)) {
+        changes.push({ champ: dbCol, ancienneValeur: oldVal, nouvelleValeur: newVal });
+      }
+    }
+  }
 
   await sql`
     INSERT INTO entreprises_sirene (
@@ -110,8 +138,8 @@ export async function upsertEtablissement(
       updated_at = now()
   `;
 
-  if (!existing) return "inserted";
-  return changed ? "updated" : "unchanged";
+  if (!existing) return { status: "inserted", changes: [] };
+  return { status: changes.length > 0 ? "updated" : "unchanged", changes };
 }
 
 /** Enregistre les changements détectés dans l'historique (étape 2+). */
@@ -143,4 +171,235 @@ export async function getEntreprisesByApe(codeApe: string, limit = 50): Promise<
     LIMIT ${limit}
   `;
   return rows.map(rowToEntreprise);
+}
+
+// ── Recherche paginée (API interne /api/entreprises) ──
+
+export interface SearchEntreprisesParams {
+  q?: string;
+  codesApe?: string[];
+  commune?: string;
+  codePostal?: string;
+  page?: number;
+  perPage?: number;
+}
+
+export interface SearchEntreprisesResult {
+  entreprises: EntrepriseRow[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export async function searchEntreprises(params: SearchEntreprisesParams): Promise<SearchEntreprisesResult> {
+  if (!isDbConfigured) return { entreprises: [], total: 0, page: 1, totalPages: 0 };
+
+  const page = Math.max(1, params.page || 1);
+  const perPage = Math.min(100, Math.max(1, params.perPage || 25));
+  const offset = (page - 1) * perPage;
+
+  const q = params.q?.trim() || null;
+  const codesApe = params.codesApe && params.codesApe.length > 0 ? params.codesApe : null;
+  const commune = params.commune?.trim() || null;
+  const codePostal = params.codePostal?.trim() || null;
+
+  // Toujours limité aux établissements actifs (voir requête décrivant la
+  // synchronisation, étape 2 : seuls les actifs sont conservés en base).
+  const { rows: countRows } = await sql`
+    SELECT COUNT(*)::int AS count FROM entreprises_sirene
+    WHERE etat_administratif = 'A'
+      AND (${q}::text IS NULL OR to_tsvector('french', coalesce(denomination, '') || ' ' || coalesce(enseigne, '')) @@ plainto_tsquery('french', ${q}))
+      AND (${codesApe}::text[] IS NULL OR code_ape = ANY(${codesApe}))
+      AND (${commune}::text IS NULL OR commune ILIKE ${commune ? `%${commune}%` : null})
+      AND (${codePostal}::text IS NULL OR code_postal = ${codePostal})
+  `;
+  const total = countRows[0]?.count || 0;
+
+  const { rows } = await sql`
+    SELECT * FROM entreprises_sirene
+    WHERE etat_administratif = 'A'
+      AND (${q}::text IS NULL OR to_tsvector('french', coalesce(denomination, '') || ' ' || coalesce(enseigne, '')) @@ plainto_tsquery('french', ${q}))
+      AND (${codesApe}::text[] IS NULL OR code_ape = ANY(${codesApe}))
+      AND (${commune}::text IS NULL OR commune ILIKE ${commune ? `%${commune}%` : null})
+      AND (${codePostal}::text IS NULL OR code_postal = ${codePostal})
+    ORDER BY denomination ASC NULLS LAST
+    LIMIT ${perPage} OFFSET ${offset}
+  `;
+
+  return {
+    entreprises: rows.map(rowToEntreprise),
+    total,
+    page,
+    totalPages: Math.ceil(total / perPage) || 1,
+  };
+}
+
+export async function getEntrepriseBySiret(siret: string): Promise<EntrepriseRow | null> {
+  if (!isDbConfigured) return null;
+  const { rows } = await sql`SELECT * FROM entreprises_sirene WHERE siret = ${siret} LIMIT 1`;
+  return rows.length > 0 ? rowToEntreprise(rows[0]) : null;
+}
+
+/** Établissements du même SIREN (autres établissements de la même entreprise). */
+export async function getEntreprisesBySiren(siren: string): Promise<EntrepriseRow[]> {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`
+    SELECT * FROM entreprises_sirene WHERE siren = ${siren} ORDER BY est_siege DESC, denomination ASC
+  `;
+  return rows.map(rowToEntreprise);
+}
+
+/** Résumé des codes APE présents en base, avec libellé et nombre d'établissements — utile pour construire des filtres "par métier". */
+export async function getApeCodesSummary(): Promise<{ codeApe: string; libelle: string | null; count: number }[]> {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`
+    SELECT code_ape, MAX(libelle_ape) AS libelle, COUNT(*)::int AS count
+    FROM entreprises_sirene
+    WHERE etat_administratif = 'A' AND code_ape IS NOT NULL
+    GROUP BY code_ape
+    ORDER BY count DESC
+  `;
+  return rows.map(r => ({ codeApe: r.code_ape, libelle: r.libelle, count: r.count }));
+}
+
+/**
+ * Liste allégée de tous les établissements actifs, pour générer le
+ * sitemap.xml (étape 5). Limitée à 5000 lignes par prudence — au-delà, il
+ * faudrait passer à plusieurs fichiers sitemap (sitemap-index), non
+ * nécessaire tant que la base ne dépasse pas ce volume.
+ */
+export async function getAllEntreprisesForSitemap(): Promise<
+  { siret: string; denomination: string | null; enseigne: string | null; commune: string | null; updatedAt: string }[]
+> {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`
+    SELECT siret, denomination, enseigne, commune, updated_at
+    FROM entreprises_sirene
+    WHERE etat_administratif = 'A'
+    ORDER BY updated_at DESC
+    LIMIT 5000
+  `;
+  return rows.map(r => ({ siret: r.siret, denomination: r.denomination, enseigne: r.enseigne, commune: r.commune, updatedAt: r.updated_at }));
+}
+
+// ── Codes APE suivis (configurables depuis l'admin, étape 4) ──
+
+export async function getWatchedApeCodes(): Promise<{ codeApe: string; libelle: string | null }[]> {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`SELECT code_ape, libelle FROM sirene_watched_ape_codes ORDER BY code_ape ASC`;
+  return rows.map(r => ({ codeApe: r.code_ape, libelle: r.libelle }));
+}
+
+export async function addWatchedApeCode(codeApe: string, libelle?: string): Promise<void> {
+  if (!isDbConfigured) return;
+  await sql`
+    INSERT INTO sirene_watched_ape_codes (code_ape, libelle) VALUES (${codeApe}, ${libelle || null})
+    ON CONFLICT (code_ape) DO UPDATE SET libelle = EXCLUDED.libelle
+  `;
+}
+
+export async function removeWatchedApeCode(codeApe: string): Promise<void> {
+  if (!isDbConfigured) return;
+  await sql`DELETE FROM sirene_watched_ape_codes WHERE code_ape = ${codeApe}`;
+}
+
+// ── Journal des synchronisations ──
+
+export async function startSyncLog(codesApe: string[]): Promise<number | null> {
+  if (!isDbConfigured) return null;
+  const { rows } = await sql`
+    INSERT INTO sirene_sync_log (codes_ape, status) VALUES (${codesApe}, 'running')
+    RETURNING id
+  `;
+  return rows[0]?.id ?? null;
+}
+
+export async function finishSyncLog(
+  id: number | null,
+  stats: { totalFetched: number; totalInserted: number; totalUpdated: number; totalUnchanged: number; error?: string }
+): Promise<void> {
+  if (!isDbConfigured || id === null) return;
+  await sql`
+    UPDATE sirene_sync_log SET
+      finished_at = now(),
+      status = ${stats.error ? "error" : "success"},
+      total_fetched = ${stats.totalFetched},
+      total_inserted = ${stats.totalInserted},
+      total_updated = ${stats.totalUpdated},
+      total_unchanged = ${stats.totalUnchanged},
+      error_message = ${stats.error || null}
+    WHERE id = ${id}
+  `;
+}
+
+export async function getRecentSyncLogs(limit = 20) {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`
+    SELECT * FROM sirene_sync_log ORDER BY started_at DESC LIMIT ${limit}
+  `;
+  return rows;
+}
+
+// ── Enrichissement manuel (téléphone / email / site web) ──
+
+export async function updateEnrichment(
+  siret: string,
+  data: { telephone?: string; email?: string; siteWeb?: string },
+  source: string = "manuel"
+): Promise<boolean> {
+  if (!isDbConfigured) return false;
+  const { rows } = await sql`
+    UPDATE entreprises_sirene SET
+      telephone = COALESCE(${data.telephone || null}, telephone),
+      email = COALESCE(${data.email || null}, email),
+      site_web = COALESCE(${data.siteWeb || null}, site_web),
+      enrichi_le = now(),
+      enrichi_par = ${source},
+      updated_at = now()
+    WHERE siret = ${siret}
+    RETURNING siret
+  `;
+  return rows.length > 0;
+}
+
+export interface CsvImportRow {
+  siret: string;
+  telephone?: string;
+  email?: string;
+  siteWeb?: string;
+}
+
+export interface CsvImportResult {
+  total: number;
+  matched: number;
+  notFound: number;
+  notFoundSirets: string[];
+}
+
+/**
+ * Import CSV manuel — met à jour uniquement les champs d'enrichissement
+ * (téléphone/email/site web) des établissements déjà présents en base
+ * (identifiés par SIRET). Ne crée jamais de nouvel établissement : la seule
+ * source de vérité pour la création reste la synchronisation SIRENE
+ * (étapes 1-2), afin de ne jamais introduire de données non officielles
+ * dans le référentiel principal.
+ */
+export async function importEnrichmentCsv(rows: CsvImportRow[]): Promise<CsvImportResult> {
+  if (!isDbConfigured) return { total: rows.length, matched: 0, notFound: 0, notFoundSirets: [] };
+
+  let matched = 0;
+  const notFoundSirets: string[] = [];
+
+  for (const row of rows) {
+    const siret = row.siret.replace(/\s/g, "");
+    if (!siret) continue;
+    const ok = await updateEnrichment(siret, {
+      telephone: row.telephone,
+      email: row.email,
+      siteWeb: row.siteWeb,
+    }, "import_csv");
+    if (ok) matched++; else notFoundSirets.push(siret);
+  }
+
+  return { total: rows.length, matched, notFound: notFoundSirets.length, notFoundSirets: notFoundSirets.slice(0, 20) };
 }
