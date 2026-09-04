@@ -283,11 +283,20 @@ export async function getApeCodesSummary(): Promise<{ codeApe: string; libelle: 
 }
 
 /**
- * Liste allégée de tous les établissements actifs, pour générer le
- * sitemap.xml (étape 5). Limitée à 5000 lignes par prudence — au-delà, il
- * faudrait passer à plusieurs fichiers sitemap (sitemap-index), non
- * nécessaire tant que la base ne dépasse pas ce volume.
+ * Liste complète des établissements actifs, avec tous les champs utiles à
+ * l'export CSV — utilisée par le bouton "Exporter CSV" de l'admin. Sans
+ * limite de volume (contrairement à getAllEntreprisesForSitemap) : un
+ * export CSV doit contenir l'intégralité de la base.
  */
+export async function getAllEntreprisesForExport(): Promise<EntrepriseRow[]> {
+  if (!isDbConfigured) return [];
+  const { rows } = await sql`
+    SELECT * FROM entreprises_sirene
+    WHERE etat_administratif = 'A'
+    ORDER BY commune ASC NULLS LAST, denomination ASC NULLS LAST
+  `;
+  return rows.map(rowToEntreprise);
+}
 export async function getAllEntreprisesForSitemap(): Promise<
   { siret: string; denomination: string | null; enseigne: string | null; commune: string | null; updatedAt: string }[]
 > {
