@@ -19,7 +19,7 @@ export async function GET() {
 
     const columns = [
       "SIRET", "SIREN", "Dénomination", "Enseigne", "Code APE", "Libellé APE",
-      "Catégorie", "Sous-catégorie", "Adresse", "Code postal", "Commune",
+      "Adresse", "Code postal", "Commune",
       "Département", "Téléphone", "Email", "Site web", "Statut",
       "Dernière synchronisation",
     ];
@@ -31,7 +31,6 @@ export async function GET() {
 
     const rows = entreprises.map(e => [
       e.siret, e.siren, e.denomination, e.enseigne, e.codeApe, e.libelleApe,
-      e.category ?? "", e.subcategory ?? "",
       e.adresse, e.codePostal, e.commune, e.departement,
       e.telephone, e.email, e.siteWeb,
       e.etatAdministratif === "A" ? "Actif" : e.etatAdministratif,
