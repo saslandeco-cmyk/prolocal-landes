@@ -389,6 +389,46 @@ export async function getRecentSyncLogs(limit = 20) {
   return rows;
 }
 
+// ── Nettoyage de la base (historique + journal de synchronisation) ──
+
+export interface CleanupResult {
+  historiqueDeleted: number;
+  syncLogsDeleted: number;
+}
+
+/**
+ * Supprime les entrées d'historique et de journal de synchronisation plus
+ * anciennes que `daysToKeep` jours. Ne touche jamais aux entreprises
+ * elles-mêmes (table entreprises_sirene) — uniquement les traces
+ * d'audit/journalisation, qui grossissent indéfiniment sans purge.
+ */
+export async function cleanupOldSireneData(daysToKeep: number): Promise<CleanupResult> {
+  if (!isDbConfigured) return { historiqueDeleted: 0, syncLogsDeleted: 0 };
+
+  const { rows: histRows } = await sql`
+    DELETE FROM entreprises_sirene_historique
+    WHERE detecte_le < now() - (${daysToKeep}::text || ' days')::interval
+    RETURNING id
+  `;
+  const { rows: logRows } = await sql`
+    DELETE FROM sirene_sync_log
+    WHERE started_at < now() - (${daysToKeep}::text || ' days')::interval
+    RETURNING id
+  `;
+
+  return { historiqueDeleted: histRows.length, syncLogsDeleted: logRows.length };
+}
+
+/** Nombre total de lignes d'historique et de journal actuellement en base (pour affichage admin). */
+export async function getSireneAuditCounts(): Promise<{ historique: number; syncLogs: number }> {
+  if (!isDbConfigured) return { historique: 0, syncLogs: 0 };
+  const [{ rows: h }, { rows: l }] = await Promise.all([
+    sql`SELECT COUNT(*)::int AS count FROM entreprises_sirene_historique`,
+    sql`SELECT COUNT(*)::int AS count FROM sirene_sync_log`,
+  ]);
+  return { historique: h[0]?.count || 0, syncLogs: l[0]?.count || 0 };
+}
+
 // ── Enrichissement manuel (téléphone / email / site web) ──
 
 export async function updateEnrichment(
