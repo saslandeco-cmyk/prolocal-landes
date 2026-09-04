@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     let inserted = 0, updated = 0, unchanged = 0;
     for (const etab of result.etablissements) {
-      const status = await upsertEtablissement(etab);
+      const { status } = await upsertEtablissement(etab);
       if (status === "inserted") inserted++;
       else if (status === "updated") updated++;
       else unchanged++;
