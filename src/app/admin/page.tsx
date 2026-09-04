@@ -291,10 +291,15 @@ function SireneManager() {
             <h2 className="text-lg font-bold text-landes-pine">Synchronisation</h2>
             <p className="text-sm text-gray-500 mt-0.5">{totalGlobal} établissement{totalGlobal > 1 ? "s" : ""} actif{totalGlobal > 1 ? "s" : ""} en base.</p>
           </div>
-          <button onClick={handleSyncNow} disabled={syncing || watchedCodes.length === 0} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            {syncing ? "Synchronisation…" : "Synchroniser maintenant"}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <a href="/api/admin/sirene/export-csv" download className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm">
+              <Download className="w-4 h-4" /> Exporter CSV
+            </a>
+            <button onClick={handleSyncNow} disabled={syncing || watchedCodes.length === 0} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {syncing ? "Synchronisation…" : "Synchroniser maintenant"}
+            </button>
+          </div>
         </div>
         {syncResult && <p className="text-sm bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-4">{syncResult}</p>}
 
