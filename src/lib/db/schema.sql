@@ -120,3 +120,111 @@ CREATE TABLE IF NOT EXISTS complementary_options (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Base exhaustive des entreprises actives des Landes (données SIRENE)
+-- Étape 1 : schéma + client API + synchronisation manuelle (preuve de
+-- concept). Les étapes suivantes ajouteront le cron quotidien, l'API
+-- interne /api/entreprises, le dashboard admin et les pages SEO.
+-- ═══════════════════════════════════════════════════════════════════
+
+-- Table principale : un établissement (SIRET) par ligne. Le dédoublonnage
+-- se fait par clé primaire SIRET ; le regroupement par SIREN (établissements
+-- secondaires d'une même entreprise) se fait via l'index sur la colonne siren.
+CREATE TABLE IF NOT EXISTS entreprises_sirene (
+  siret               TEXT PRIMARY KEY,
+  siren               TEXT NOT NULL,
+  nic                 TEXT NOT NULL,               -- 5 derniers chiffres du SIRET (numéro d'établissement)
+  denomination        TEXT,
+  nom_commercial      TEXT,
+  enseigne            TEXT,
+
+  -- Activité (code APE / NAF) — deux nomenclatures en parallèle pendant la
+  -- transition NAF 2025/2027 (voir actualité INSEE de juin 2026 : les codes
+  -- NAF 2025 sont déjà diffusés à titre informatif dans l'API Sirene).
+  code_ape            TEXT,                        -- NAF Rév. 2 (nomenclature actuelle)
+  libelle_ape          TEXT,
+  code_ape_naf2025     TEXT,                        -- NAF Rév. 2025 (préparation bascule officielle)
+  libelle_ape_naf2025  TEXT,
+
+  -- Établissement
+  est_siege           BOOLEAN NOT NULL DEFAULT FALSE,
+  etat_administratif   TEXT NOT NULL DEFAULT 'A',    -- A = actif, C = cessé (on ne stocke que les actifs, voir sync.ts)
+  date_creation        DATE,
+
+  -- Adresse
+  adresse             TEXT,
+  code_postal          TEXT,
+  commune              TEXT,
+  code_commune_insee    TEXT,
+  departement          TEXT NOT NULL DEFAULT '40',
+  lat                  DOUBLE PRECISION,
+  lng                  DOUBLE PRECISION,
+
+  -- Tranche d'effectif (utile pour prioriser l'enrichissement / le démarchage)
+  tranche_effectif     TEXT,
+
+  -- Enrichissement manuel (non fourni par Sirene, à compléter via l'admin
+  -- ou un connecteur tiers — voir étape "enrichissement")
+  telephone            TEXT,
+  email                TEXT,
+  site_web             TEXT,
+  enrichi_le           TIMESTAMPTZ,
+  enrichi_par          TEXT,                        -- "manuel" | "import_csv" | nom du connecteur
+
+  -- Rattachement optionnel à une fiche Prolocal-Landes déjà créée par le pro
+  professional_id      TEXT REFERENCES professionals(id) ON DELETE SET NULL,
+
+  -- Données brutes complètes retournées par l'API, pour ne rien perdre
+  -- même si ce schéma n'expose pas encore tous les champs.
+  raw_data             JSONB,
+
+  source               TEXT NOT NULL DEFAULT 'recherche-entreprises',  -- API utilisée
+  first_synced_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_synced_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_siren       ON entreprises_sirene (siren);
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_code_ape     ON entreprises_sirene (code_ape);
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_commune      ON entreprises_sirene (commune);
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_departement  ON entreprises_sirene (departement);
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_etat         ON entreprises_sirene (etat_administratif);
+CREATE INDEX IF NOT EXISTS idx_entreprises_sirene_denomination ON entreprises_sirene USING gin (to_tsvector('french', coalesce(denomination, '') || ' ' || coalesce(enseigne, '')));
+
+-- Historique des modifications — une ligne par changement détecté à chaque
+-- synchronisation (pas un simple écrasement). Alimentée à partir de l'étape 2.
+CREATE TABLE IF NOT EXISTS entreprises_sirene_historique (
+  id            SERIAL PRIMARY KEY,
+  siret         TEXT NOT NULL,
+  champ         TEXT NOT NULL,       -- nom du champ modifié (ex: "etat_administratif", "denomination")
+  ancienne_valeur TEXT,
+  nouvelle_valeur TEXT,
+  detecte_le     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_entreprises_historique_siret ON entreprises_sirene_historique (siret);
+
+-- Journal des synchronisations (cron quotidien, étape 2) — permet de suivre
+-- les exécutions depuis le dashboard admin.
+CREATE TABLE IF NOT EXISTS sirene_sync_log (
+  id              SERIAL PRIMARY KEY,
+  started_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at      TIMESTAMPTZ,
+  status           TEXT NOT NULL DEFAULT 'running',  -- running | success | error
+  codes_ape        TEXT[],
+  total_fetched     INTEGER NOT NULL DEFAULT 0,
+  total_inserted    INTEGER NOT NULL DEFAULT 0,
+  total_updated     INTEGER NOT NULL DEFAULT 0,
+  total_unchanged   INTEGER NOT NULL DEFAULT 0,
+  error_message     TEXT
+);
+
+-- Codes APE suivis — configurables depuis l'admin (étape 4), consultés par
+-- le cron de synchronisation (étape 2) pour savoir quoi interroger.
+CREATE TABLE IF NOT EXISTS sirene_watched_ape_codes (
+  code_ape      TEXT PRIMARY KEY,
+  libelle       TEXT,
+  added_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
