@@ -30,6 +30,8 @@ export interface EntrepriseRow {
   email: string | null;
   siteWeb: string | null;
   professionalId: string | null;
+  category: string | null;
+  subcategory: string | null;
   updatedAt: string;
 }
 
@@ -57,6 +59,8 @@ function rowToEntreprise(row: any): EntrepriseRow {
     email: row.email,
     siteWeb: row.site_web,
     professionalId: row.professional_id,
+    category: row.category,
+    subcategory: row.subcategory,
     updatedAt: row.updated_at,
   };
 }
@@ -105,19 +109,25 @@ export async function upsertEtablissement(etab: SireneEtablissement): Promise<Up
     }
   }
 
+  // Ventilation automatique : retrouve la catégorie/sous-catégorie interne
+  // associée au code APE suivi correspondant (configurée depuis l'admin).
+  const { category, subcategory } = etab.codeApe
+    ? await getCategoryForApeCode(etab.codeApe)
+    : { category: null, subcategory: null };
+
   await sql`
     INSERT INTO entreprises_sirene (
       siret, siren, nic, denomination, nom_commercial, enseigne,
       code_ape, libelle_ape, code_ape_naf2025, libelle_ape_naf2025,
       est_siege, etat_administratif, date_creation,
       adresse, code_postal, commune, code_commune_insee, departement,
-      tranche_effectif, raw_data, source, last_synced_at, updated_at
+      tranche_effectif, category, subcategory, raw_data, source, last_synced_at, updated_at
     ) VALUES (
       ${etab.siret}, ${etab.siren}, ${etab.nic}, ${etab.denomination}, ${etab.nomCommercial}, ${etab.enseigne},
       ${etab.codeApe}, ${etab.libelleApe}, ${etab.codeApeNaf2025}, ${etab.libelleApeNaf2025},
       ${etab.estSiege}, ${etab.etatAdministratif}, ${etab.dateCreation},
       ${etab.adresse}, ${etab.codePostal}, ${etab.commune}, ${etab.codeCommuneInsee}, ${(etab.codePostal || "40").slice(0, 2)},
-      ${etab.trancheEffectif}, ${JSON.stringify(etab.raw)}::jsonb, 'recherche-entreprises', now(), now()
+      ${etab.trancheEffectif}, ${category}, ${subcategory}, ${JSON.stringify(etab.raw)}::jsonb, 'recherche-entreprises', now(), now()
     )
     ON CONFLICT (siret) DO UPDATE SET
       denomination = EXCLUDED.denomination,
@@ -133,6 +143,8 @@ export async function upsertEtablissement(etab: SireneEtablissement): Promise<Up
       commune = EXCLUDED.commune,
       code_commune_insee = EXCLUDED.code_commune_insee,
       tranche_effectif = EXCLUDED.tranche_effectif,
+      category = EXCLUDED.category,
+      subcategory = EXCLUDED.subcategory,
       raw_data = EXCLUDED.raw_data,
       last_synced_at = now(),
       updated_at = now()
@@ -180,6 +192,8 @@ export interface SearchEntreprisesParams {
   codesApe?: string[];
   commune?: string;
   codePostal?: string;
+  category?: string;
+  subcategory?: string;
   page?: number;
   perPage?: number;
 }
@@ -202,6 +216,8 @@ export async function searchEntreprises(params: SearchEntreprisesParams): Promis
   const codesApe = params.codesApe && params.codesApe.length > 0 ? params.codesApe : null;
   const commune = params.commune?.trim() || null;
   const codePostal = params.codePostal?.trim() || null;
+  const category = params.category?.trim() || null;
+  const subcategory = params.subcategory?.trim() || null;
 
   // Toujours limité aux établissements actifs (voir requête décrivant la
   // synchronisation, étape 2 : seuls les actifs sont conservés en base).
@@ -212,6 +228,8 @@ export async function searchEntreprises(params: SearchEntreprisesParams): Promis
       AND (${codesApe}::text[] IS NULL OR code_ape = ANY(${codesApe}))
       AND (${commune}::text IS NULL OR commune ILIKE ${commune ? `%${commune}%` : null})
       AND (${codePostal}::text IS NULL OR code_postal = ${codePostal})
+      AND (${category}::text IS NULL OR category = ${category})
+      AND (${subcategory}::text IS NULL OR subcategory = ${subcategory})
   `;
   const total = countRows[0]?.count || 0;
 
@@ -222,6 +240,8 @@ export async function searchEntreprises(params: SearchEntreprisesParams): Promis
       AND (${codesApe}::text[] IS NULL OR code_ape = ANY(${codesApe}))
       AND (${commune}::text IS NULL OR commune ILIKE ${commune ? `%${commune}%` : null})
       AND (${codePostal}::text IS NULL OR code_postal = ${codePostal})
+      AND (${category}::text IS NULL OR category = ${category})
+      AND (${subcategory}::text IS NULL OR subcategory = ${subcategory})
     ORDER BY denomination ASC NULLS LAST
     LIMIT ${perPage} OFFSET ${offset}
   `;
@@ -284,18 +304,38 @@ export async function getAllEntreprisesForSitemap(): Promise<
 
 // ── Codes APE suivis (configurables depuis l'admin, étape 4) ──
 
-export async function getWatchedApeCodes(): Promise<{ codeApe: string; libelle: string | null }[]> {
+export async function getWatchedApeCodes(): Promise<
+  { codeApe: string; libelle: string | null; category: string | null; subcategory: string | null }[]
+> {
   if (!isDbConfigured) return [];
-  const { rows } = await sql`SELECT code_ape, libelle FROM sirene_watched_ape_codes ORDER BY code_ape ASC`;
-  return rows.map(r => ({ codeApe: r.code_ape, libelle: r.libelle }));
+  const { rows } = await sql`
+    SELECT code_ape, libelle, category, subcategory FROM sirene_watched_ape_codes ORDER BY code_ape ASC
+  `;
+  return rows.map(r => ({ codeApe: r.code_ape, libelle: r.libelle, category: r.category, subcategory: r.subcategory }));
 }
 
-export async function addWatchedApeCode(codeApe: string, libelle?: string): Promise<void> {
+export async function addWatchedApeCode(
+  codeApe: string,
+  libelle?: string,
+  category?: string,
+  subcategory?: string
+): Promise<void> {
   if (!isDbConfigured) return;
   await sql`
-    INSERT INTO sirene_watched_ape_codes (code_ape, libelle) VALUES (${codeApe}, ${libelle || null})
-    ON CONFLICT (code_ape) DO UPDATE SET libelle = EXCLUDED.libelle
+    INSERT INTO sirene_watched_ape_codes (code_ape, libelle, category, subcategory)
+    VALUES (${codeApe}, ${libelle || null}, ${category || null}, ${subcategory || null})
+    ON CONFLICT (code_ape) DO UPDATE SET
+      libelle = EXCLUDED.libelle,
+      category = EXCLUDED.category,
+      subcategory = EXCLUDED.subcategory
   `;
+}
+
+/** Retrouve la catégorie/sous-catégorie associée à un code APE suivi (pour la ventilation automatique à la synchro). */
+export async function getCategoryForApeCode(codeApe: string): Promise<{ category: string | null; subcategory: string | null }> {
+  if (!isDbConfigured) return { category: null, subcategory: null };
+  const { rows } = await sql`SELECT category, subcategory FROM sirene_watched_ape_codes WHERE code_ape = ${codeApe} LIMIT 1`;
+  return rows.length > 0 ? { category: rows[0].category, subcategory: rows[0].subcategory } : { category: null, subcategory: null };
 }
 
 export async function removeWatchedApeCode(codeApe: string): Promise<void> {
