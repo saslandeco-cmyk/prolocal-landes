@@ -5,8 +5,6 @@ import { buildProfileUrl, categorySlug, subcategorySlugForUrl } from "@/lib/prof
 import { SUBCATEGORIES } from "@/types";
 import { dbGetAllProfessionals } from "@/lib/db/professionals";
 import { isDbConfigured } from "@/lib/db/client";
-import { getAllEntreprisesForSitemap } from "@/lib/sirene/db";
-import { buildEntrepriseUrl } from "@/lib/sirene/url";
 
 /**
  * Sitemap.xml — couvre toutes les pages statiques, les pages catégories,
@@ -21,7 +19,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${baseUrl}/`, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${baseUrl}/annuaire`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-    { url: `${baseUrl}/entreprises`, lastModified: now, changeFrequency: "daily", priority: 0.85 },
     { url: `${baseUrl}/categories`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/inscription`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/contact`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
@@ -72,21 +69,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   }
 
-  // Entreprises SIRENE (base exhaustive des entreprises des Landes — étape 5)
-  let entrepriseRoutes: MetadataRoute.Sitemap = [];
-  if (isDbConfigured) {
-    try {
-      const entreprises = await getAllEntreprisesForSitemap();
-      entrepriseRoutes = entreprises.map(e => ({
-        url: `${baseUrl}${buildEntrepriseUrl(e)}`,
-        lastModified: new Date(e.updatedAt),
-        changeFrequency: "monthly" as const,
-        priority: 0.5,
-      }));
-    } catch {
-      // Base indisponible ponctuellement : on continue avec le reste du sitemap
-    }
-  }
+  // Les pages entreprises SIRENE (/entreprises/*) sont volontairement non
+  // indexables (robots: noindex, voir leurs page.tsx) — donc absentes du
+  // sitemap, qui ne doit lister que des pages destinées à être indexées.
 
-  return [...staticRoutes, ...categoryRoutes, ...subcategoryRoutes, ...cityRoutes, ...profileRoutes, ...entrepriseRoutes];
+  return [...staticRoutes, ...categoryRoutes, ...subcategoryRoutes, ...cityRoutes, ...profileRoutes];
 }
