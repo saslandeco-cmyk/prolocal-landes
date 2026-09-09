@@ -76,13 +76,11 @@ export function buildProfileUrl(pro: Professional): string {
  */
 /**
  * Extrait l'identifiant situé à la fin d'un slug de fiche
- * (ex: "menuiserie-labrouche-482913" → "482913", "boulangerie-des-pins-demo1" → "demo1").
+ * (ex: "menuiserie-labrouche-482913" → "482913").
  *
  * L'URL étant toujours générée par buildProfileUrl() sous la forme
  * "nom-entreprise-[id]", l'identifiant correspond systématiquement au
- * dernier segment après le tiret final — quel que soit son format
- * (identifiant numérique à 6 chiffres pour les nouvelles fiches, ou
- * identifiant existant type "demo1" pour les fiches de démonstration).
+ * dernier segment après le tiret final.
  */
 export function extractIdFromSlug(slug: string): string | null {
   if (!slug) return null;

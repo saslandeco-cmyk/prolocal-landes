@@ -1,12 +1,5 @@
 import { CategoryMeta } from "@/components/category/CategoryPage";
 
-const d = (id: string, name: string, cat: string, city: string, pc: string, addr: string, lat: number, lng: number, plan: "gold"|"premium"|"standard", form: string, desc: string, fn: string, ln: string, phone: string, banner = "") => ({
-  id, companyName: name, category: cat, city, postalCode: pc, address: addr, lat, lng,
-  plan, status: "active" as const, siren: id.padStart(9,"1"), legalForm: form,
-  description: `<p>${desc}</p>`, firstName: fn, lastName: ln,
-  email: `${id}@demo.fr`, phone, logo: "", banner, photos: [],
-});
-
 export const CATEGORY_META: Record<string, CategoryMeta> = {
 
   // ── Alimentation ─────────────────────────────────────────────
@@ -25,13 +18,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Favoriser les commerces locaux, c'est soutenir l'économie de proximité, réduire l'empreinte carbone de son alimentation et savourer des produits frais préparés avec soin. Trouvez votre artisan de bouche de confiance dans les Landes grâce à notre annuaire.",
     ],
     ctaText: "Boulanger, charcutier, fromager, épicier ou producteur local — référencez votre commerce et soyez trouvé par des milliers de clients landais.",
-    demoPros: [
-      d("al1","Boulangerie des Pins","Alimentation & Épicerie","Mont-de-Marsan","40000","12 rue de la Paix",43.8940,-0.5020,"gold","SARL","Pain au levain naturel, viennoiseries maison et pâtisseries artisanales cuites au four à bois depuis 1987. Ouvert du mardi au dimanche matin.","Jean","Martin","05 58 11 22 33","/banners/alimentation.jpg"),
-      d("al2","Fromagerie Landaise","Alimentation & Épicerie","Dax","40100","5 Marché Couvert",43.7101,-1.0527,"premium","EI","Sélection de fromages fermiers et affinés. Cave à fromages avec plus de 80 références dont les spécialités régionales du Sud-Ouest. Dégustation sur place.","Claire","Fromage","05 58 22 33 44","/banners/alimentation.jpg"),
-      d("al3","Charcuterie Dupont","Alimentation & Épicerie","Hagetmau","40700","8 Place du Marché",43.6429,-0.5910,"gold","SARL","Charcuterie artisanale : jambon de Bayonne, saucissons, pâtés et rillettes. Traiteur pour mariages, anniversaires et événements d'entreprise jusqu'à 300 personnes.","Louis","Dupont","05 58 33 44 55","/banners/alimentation.jpg"),
-      d("al4","Épicerie Bio des Landes","Alimentation & Épicerie","Biscarrosse","40600","3 Avenue de la Forêt",44.3952,-1.1637,"premium","SARL","Épicerie bio avec produits locaux en circuits courts. Fruits et légumes de saison, vrac, conserves artisanales et vins nature des Landes. Panier bio hebdomadaire.","Sophie","Bio","05 58 44 55 66","/banners/alimentation.jpg"),
-      d("al5","Cave à Vins Landaise","Alimentation & Épicerie","Capbreton","40130","15 Rue du Port",43.6630,-1.4431,"standard","EI","Sélection de vins du Sud-Ouest, vins nature et spiritueux artisanaux. Conseils personnalisés, coffrets cadeaux et organisation de dégustations privées ou professionnelles.","Marc","Vins","05 58 55 66 77","/banners/alimentation.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Artisanat ────────────────────────────────────────────────
@@ -50,13 +37,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Soutenir l'artisanat local, c'est encourager une économie créative, durable et ancrée dans les traditions landaises. Découvrez ces talents cachés dans notre annuaire et trouvez l'artisan qui donnera vie à vos projets.",
     ],
     ctaText: "Potier, ébéniste, forgeron, maroquinier ou créateur d'art — référencez votre atelier et soyez découvert par une clientèle locale et touristique.",
-    demoPros: [
-      d("ar1","Poterie Landaise","Artisanat & Métiers d'art","Dax","40100","2 Impasse des Arts",43.7101,-1.0527,"gold","EI","Création de pièces uniques en terre cuite landaise. Ateliers ouverts au public toute l'année sur rendez-vous. Stage poterie pour adultes et enfants. Pièces décoratives et fonctionnelles.","Anne","Potter","05 58 11 22 33","/banners/artisanat.jpg"),
-      d("ar2","Forge des Pins","Artisanat & Métiers d'art","Mont-de-Marsan","40000","5 Zone Artisanale",43.8914,-0.5006,"premium","EI","Ferronnerie d'art sur mesure : portails, rampes, mobilier de jardin et décoration intérieure. Restauration de pièces anciennes. Visite de la forge possible sur demande.","Pierre","Forgeron","05 58 22 33 44","/banners/artisanat.jpg"),
-      d("ar3","Menuiserie Larroque","Artisanat & Métiers d'art","Tartas","40400","Route des Artisans",43.8335,-0.7502,"gold","SARL","Fabrication de meubles sur mesure en bois massif de pin et chêne. Restauration de pièces anciennes. Cuisine, bibliothèque, dressing. Devis gratuit à domicile.","Paul","Bois","05 58 33 44 55","/banners/artisanat.jpg"),
-      d("ar4","Maroquinerie Côte","Artisanat & Métiers d'art","Hossegor","40150","10 Rue du Bourg",43.6640,-1.4292,"premium","EI","Création de sacs, ceintures et accessoires en cuir tannés végétalement. Réparations et personnalisations. Atelier visible depuis la boutique. Expédition possible.","Marie","Cuir","05 58 44 55 66","/banners/artisanat.jpg"),
-      d("ar5","Verrerie des Landes","Artisanat & Métiers d'art","Mimizan","40200","6 Chemin du Lac",44.2033,-1.2297,"standard","EI","Art du verre soufflé à la bouche. Pièces décoratives et fonctionnelles en verre coloré. Démonstrations publiques le week-end. Vente directe à l'atelier.","Éric","Verre","05 58 55 66 77","/banners/artisanat.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Bâtiment ─────────────────────────────────────────────────
@@ -75,13 +56,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Demandez plusieurs devis et comparez les offres. Les artisans référencés sur notre plateforme sont des professionnels sérieux, réactifs et habitués aux spécificités techniques des constructions landaises.",
     ],
     ctaText: "Maçon, couvreur, plombier, électricien ou peintre — référencez votre entreprise et recevez des demandes de devis de particuliers et professionnels des Landes.",
-    demoPros: [
-      d("bt1","Charpente Landaise","Bâtiment & Travaux","Tartas","40400","Zone Artisanale",43.8335,-0.7502,"gold","SARL","Charpente traditionnelle, ossature bois et couverture. Tuile, ardoise et bac acier. Garantie décennale. Devis gratuit sous 48h. Intervention sur tout le département 40.","Jacques","Bois","05 58 11 22 33","/banners/batiment.jpg"),
-      d("bt2","Électricité Côte","Bâtiment & Travaux","Capbreton","40130","8 Rue de l'Artisan",43.6630,-1.4431,"premium","SAS","Installation électrique neuf et rénovation. Mise aux normes NF C 15-100. Domotique, alarme et bornes de recharge EV. Certifié QUALIFELEC. Urgences 7j/7.","René","Élec","05 58 22 33 44","/banners/batiment.jpg"),
-      d("bt3","Maçonnerie Dupuy","Bâtiment & Travaux","Aire-sur-l'Adour","40800","Route de Pau",43.9265,-0.3303,"gold","SARL","Construction, rénovation et extension. Maçonnerie traditionnelle et béton banché. Pose de carrelage, dallage et parquet. 20 ans d'expérience dans les Landes.","Bernard","Mur","05 58 33 44 55","/banners/batiment.jpg"),
-      d("bt4","Plomberie Garros","Bâtiment & Travaux","Hagetmau","40700","Chemin des Artisans",43.6429,-0.5910,"premium","EI","Plomberie, chauffage et climatisation. Installation de pompes à chaleur air/eau, chauffe-eaux solaires et climatiseurs. Certifié RGE QualiPAC. Dépannage express.","Henri","Plomb","05 58 44 55 66","/banners/batiment.jpg"),
-      d("bt5","Plâtrerie Soleil","Bâtiment & Travaux","Morcenx","40110","Allée des Metiers",44.0906,-0.6003,"standard","EI","Plâtrerie, isolation intérieure et peinture. Enduits décoratifs, ravalement de façade et isolation par l'extérieur. ITE éligible MaPrimeRénov. Devis gratuit.","Alain","Mur","05 58 55 66 77","/banners/batiment.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Beauté ───────────────────────────────────────────────────
@@ -100,13 +75,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Prenez soin de vous en choisissant des professionnels de proximité, formés et expérimentés, qui vous accompagnent dans votre démarche de bien-être au quotidien.",
     ],
     ctaText: "Esthéticienne, coiffeur, spa, masseur ou thérapeute — référencez votre activité et rejoignez les professionnels du bien-être les plus trouvés dans les Landes.",
-    demoPros: [
-      d("be1","Spa des Thermes","Beauté & Bien-être","Dax","40100","3 Rue des Thermes",43.7101,-1.0527,"gold","SARL","Institut de beauté et spa inspiré de la tradition thermale dacquoise. Soins visage et corps, massages, balnéothérapie et enveloppements péloïde. Forfaits cadeau disponibles.","Nathalie","Spa","05 58 11 22 33","/banners/beaute.jpg"),
-      d("be2","Coiffure Naturelle","Beauté & Bien-être","Mont-de-Marsan","40000","15 Rue de la République",43.8914,-0.5006,"premium","EI","Salon de coiffure bio et éco-responsable. Colorations végétales, coupes femme-homme-enfant, soins naturels. Produits certifiés biologiques. Ambiance zen et accueil personnalisé.","Carole","Coiff","05 58 22 33 44","/banners/beaute.jpg"),
-      d("be3","Institut Soleil","Beauté & Bien-être","Biscarrosse","40600","8 Avenue de la Plage",44.3952,-1.1637,"gold","EI","Institut d'esthétique complet : soins du visage, épilations, poses d'ongles semi-permanent et gel, maquillage et microblading. Ambiance chaleureuse, résultats impeccables.","Julie","Beauté","05 58 33 44 55","/banners/beaute.jpg"),
-      d("be4","Yoga Océan Hossegor","Beauté & Bien-être","Hossegor","40150","2 Chemin de la Forêt",43.6640,-1.4292,"premium","EI","Studio de yoga tous styles (vinyasa, yin, kundalini). Retraites bien-être le week-end en bord de forêt. Méditation guidée, yoga nidra. Cours en ligne disponibles. Certifiée RYT-500.","Isabelle","Yoga","05 58 44 55 66","/banners/beaute.jpg"),
-      d("be5","Ostéopathie Soustons","Beauté & Bien-être","Soustons","40140","10 Allée de la Santé",43.7540,-1.2749,"standard","EI","Ostéopathe D.O. agréé pour adultes, enfants et nourrissons. Prise en charge des douleurs chroniques, post-accidentelles et sportives. Sur rendez-vous uniquement. Parking gratuit.","David","Ostéo","05 58 55 66 77","/banners/beaute.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Commerce ─────────────────────────────────────────────────
@@ -125,13 +94,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Découvrez les commerces incontournables des Landes grâce à notre annuaire et privilégiez les enseignes locales pour tous vos achats quotidiens et vos cadeaux.",
     ],
     ctaText: "Boutique, surf shop, librairie ou commerce spécialisé — référencez votre enseigne et attirez de nouveaux clients locaux et touristiques.",
-    demoPros: [
-      d("co1","Surf Shop Hossegor","Commerce & Vente","Hossegor","40150","1 Avenue du Surf",43.6640,-1.4292,"gold","SARL","Vente et location de planches de surf, bodyboards, combinaisons et accessoires. Réparation de boards. Conseils d'experts pour choisir le matériel adapté à votre niveau.","Tom","Surf","05 58 11 22 33","/banners/commerce.jpg"),
-      d("co2","Librairie des Pins","Commerce & Vente","Dax","40100","5 Rue Gambetta",43.7101,-1.0527,"premium","EI","Librairie indépendante généraliste avec rayon régionalisme landais et gascon. Commandes spéciales, dédicaces d'auteurs, ateliers lecture pour enfants et clubs de lecture adultes.","Patricia","Livres","05 58 22 33 44","/banners/commerce.jpg"),
-      d("co3","Mode & Nature","Commerce & Vente","Mont-de-Marsan","40000","12 Rue Lacataye",43.8914,-0.5006,"gold","SAS","Boutique de mode éco-responsable et made in France. Collections femme, homme et enfant. Marques engagées, matières naturelles et durables. Programme de reprise et seconde vie.","Audrey","Mode","05 58 33 44 55","/banners/commerce.jpg"),
-      d("co4","Déco Landaise","Commerce & Vente","Capbreton","40130","7 Rue de la Mer",43.6630,-1.4431,"premium","EI","Articles de décoration intérieure, mobilier design et cadeaux originaux. Créations d'artisans locaux et produits du terroir sélectionnés. Idées cadeaux toute l'année.","Valérie","Déco","05 58 44 55 66","/banners/commerce.jpg"),
-      d("co5","Sport & Outdoor Landes","Commerce & Vente","Biscarrosse","40600","3 Avenue des Sports",44.3952,-1.1637,"standard","SARL","Articles de sport, randonnée, camping et sports outdoor. Raquettes, vélos, kayaks et matériel de camping. Conseils personnalisés par des passionnés de nature et d'aventure.","Benoît","Sport","05 58 55 66 77","/banners/commerce.jpg"),
-    ],
+    demoPros: [],
   },
 
 
@@ -154,13 +117,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Que vous souhaitiez acheter, vendre, louer ou investir dans l'immobilier landais, notre annuaire vous met en relation avec les professionnels les plus compétents et les mieux implantés dans le département des Landes.",
     ],
     ctaText: "Agence immobilière, constructeur, diagnostiqueur ou gestionnaire locatif — référencez votre activité et captez des mandats et clients dans les Landes.",
-    demoPros: [
-      d("im1","Landes Immobilier","Immobilier","Mont-de-Marsan","40000","15 Rue Saint-Pierre",43.8914,-0.5006,"gold","SARL","Agence immobilière indépendante. Vente et location résidentielle et commerciale dans tout le département 40. Estimation gratuite, photos professionnelles et visite virtuelle incluses.","Frédéric","Immo","05 58 11 22 33","/banners/immobilier.jpg"),
-      d("im2","Côte Immo","Immobilier","Hossegor","40150","8 Avenue des Pins",43.6640,-1.4292,"gold","SAS","Spécialiste de l'immobilier balnéaire. Villas, appartements et terrains sur la côte landaise. Investissement locatif saisonnier et gestion complète. Réseau d'acquéreurs national et international.","Pascal","Côte","05 58 22 33 44","/banners/immobilier.jpg"),
-      d("im3","Construction Landes","Immobilier","Tartas","40400","Zone Commerciale",43.8335,-0.7502,"premium","SARL","Constructeur de maisons individuelles sur mesure. Maisons RE2020, ossature bois et passive. Du terrain à la remise des clés. Garantie décennale et parfait achèvement. Devis gratuit.","Michel","Construc","05 58 33 44 55","/banners/immobilier.jpg"),
-      d("im4","Gestion Location 40","Immobilier","Dax","40100","12 Avenue Victor Hugo",43.7101,-1.0527,"premium","SAS","Gestion locative complète : recherche de locataires, rédaction des baux, états des lieux, quittances et suivi des travaux. Gestion saisonnière sur la côte. Commission transparente.","Nadège","Gestion","05 58 44 55 66","/banners/immobilier.jpg"),
-      d("im5","Expertise Foncière","Immobilier","Biscarrosse","40600","3 Boulevard de l'Expert",44.3952,-1.1637,"standard","EI","Expert immobilier certifié. Estimations de valeur vénale, DPE, diagnostic amiante, plomb et termites. Rapports d'expertise pour successions, divorces et transactions. Devis en ligne.","Thierry","Expert","05 58 55 66 77","/banners/immobilier.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Informatique ─────────────────────────────────────────────
@@ -179,13 +136,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Que vous soyez artisan, commerçant ou dirigeant d'une PME landaise, faites confiance aux professionnels du numérique de votre département pour vous accompagner dans votre digitalisation.",
     ],
     ctaText: "Développeur, graphiste, infogérant ou formateur informatique — référencez votre activité et développez votre clientèle parmi les entreprises landaises.",
-    demoPros: [
-      d("in1","Web Landes Agency","Informatique & Numérique","Mont-de-Marsan","40000","25 Rue du Digital",43.8914,-0.5006,"gold","SAS","Agence web créative : sites vitrine, e-commerce, applications mobiles. SEO, Google Ads et réseaux sociaux. Accompagnement complet de la stratégie digitale au reporting mensuel.","Alexandre","Web","05 58 11 22 33","/banners/informatique.jpg"),
-      d("in2","Répar'Info 40","Informatique & Numérique","Dax","40100","7 Rue du PC",43.7101,-1.0527,"premium","EI","Réparation PC, Mac et smartphones. Suppression de virus, récupération de données, mise à jour matériel. Intervention à domicile possible. Devis gratuit. Pièces garanties 12 mois.","Kevin","Répar","05 58 22 33 44","/banners/informatique.jpg"),
-      d("in3","Studio Créa Digital","Informatique & Numérique","Hossegor","40150","4 Rue du Studio",43.6640,-1.4292,"gold","EURL","Graphisme et identité visuelle. Création de logos, chartes graphiques, supports print et digitaux. Illustration, motion design et direction artistique. Portfolio sur demande.","Chloé","Créa","05 58 33 44 55","/banners/informatique.jpg"),
-      d("in4","Cloud Solutions 40","Informatique & Numérique","Biscarrosse","40600","2 Allée du Cloud",44.3952,-1.1637,"premium","SAS","Infogérance, hébergement et solutions cloud pour TPE/PME. Sauvegarde automatique, messagerie professionnelle et cybersécurité. Contrats de maintenance mensuels. SLA garanti.","Thomas","Cloud","05 58 44 55 66","/banners/informatique.jpg"),
-      d("in5","Formation Numérique 40","Informatique & Numérique","Capbreton","40130","9 Rue des Formations",43.6630,-1.4431,"standard","SAS","Formations bureautique, réseaux sociaux, création de site web et sécurité informatique. Présentiel et distanciel. Certifié QUALIOPI. Financement CPF et OPCO acceptés.","Isabelle","Form","05 58 55 66 77","/banners/informatique.jpg"),
-    ],
+    demoPros: [],
   },
 
 
@@ -205,13 +156,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Que vous cherchiez à acheter des produits frais directement à la ferme, à faire entretenir votre jardin par un paysagiste professionnel, ou à planter des essences locales dans votre terrain, notre annuaire vous met en relation avec les professionnels de la nature des Landes.",
     ],
     ctaText: "Éleveur, maraîcher, apiculteur, paysagiste ou forestier — référencez votre exploitation et développez votre clientèle directe dans les Landes.",
-    demoPros: [
-      d("ag1","Ferme du Canard","Culture & Élevage","Hagetmau","40700","Chemin de la Ferme",43.6429,-0.5910,"gold","EARL","Élevage traditionnel de canards IGP Chalosse. Production de foie gras, magrets, confits et rillettes. Vente à la ferme et livraison. Visites de l'exploitation sur réservation.","Jean-Pierre","Canard","05 58 11 22 33","/banners/agriculture.jpg"),
-      d("ag2","Pépinière des Landes","Culture & Élevage","Sabres","40630","Route des Arbres",44.1500,-0.7333,"premium","SARL","Vente de plants, arbres, arbustes et plantes vivaces adaptés au climat landais. Service de plantation et création de jardins. Conseils d'expert et diagnostic paysager gratuit.","Bertrand","Pépinière","05 58 22 33 44","/banners/agriculture.jpg"),
-      d("ag3","Apiculture Forêt 40","Culture & Élevage","Labouheyre","40210","Chemin des Ruches",44.1500,-0.9333,"gold","EI","Apiculteur passionné. Miels de forêt landaise, de fleurs sauvages et de bruyère. Propolis, cire et produits de la ruche. Vente directe et livraison à domicile. Initiation apiculture.","Robert","Miel","05 58 33 44 55","/banners/agriculture.jpg"),
-      d("ag4","Maraîchage Bio Landes","Culture & Élevage","Aire-sur-l'Adour","40800","Chemin des Légumes",43.9265,-0.3303,"premium","EARL","Légumes de saison cultivés en agriculture biologique. AMAP et vente sur marchés locaux. Paniers hebdomadaires de 6kg. Variétés anciennes et semences paysannes. Accès à la ferme.","Lucie","Bio","05 58 44 55 66","/banners/agriculture.jpg"),
-      d("ag5","Sylviculture Landes","Culture & Élevage","Morcenx","40110","Route Forestière",44.0906,-0.6003,"standard","SARL","Gestion et exploitation de forêts de pins maritimes. Élagage, abattage, débroussaillage et reboisement. Vente de bois de chauffage et plaquettes forestières. Intervention dans tout le 40.","Patrick","Forêt","05 58 55 66 77","/banners/agriculture.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Services ─────────────────────────────────────────────────
@@ -230,13 +175,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Tous les prestataires de services à la personne référencés sur notre annuaire sont déclarés et permettent de bénéficier du <strong class=\"text-landes-pine\">crédit d'impôt de 50%</strong> sur les dépenses engagées, dans la limite des plafonds légaux.",
     ],
     ctaText: "Aide à domicile, baby-sitter, jardinier, agent d'entretien ou concierge — référencez votre activité et développez votre clientèle dans les Landes.",
-    demoPros: [
-      d("se1","Aide & Présence 40","Services à la personne","Mont-de-Marsan","40000","5 Rue de l'Entraide",43.8914,-0.5006,"gold","SAS","Aide à domicile pour personnes âgées et dépendantes. Aide aux gestes quotidiens, accompagnement sorties, portage de repas. Agréée et conventionnée. Crédit impôt 50%.","Sylvie","Aide","05 58 11 22 33","/banners/services.jpg"),
-      d("se2","Baby-Sitting Pro Dax","Services à la personne","Dax","40100","8 Avenue des Familles",43.7101,-1.0527,"premium","EI","Garde d'enfants à domicile. Nounous diplômées, titulaires du BAFA et premiers secours. Gardes régulières ou ponctuelles. Aide aux devoirs incluse. Disponible soirs et week-ends.","Élodie","Baby","05 58 22 33 44","/banners/services.jpg"),
-      d("se3","Jardinage Landes","Services à la personne","Biscarrosse","40600","3 Chemin du Jardin",44.3952,-1.1637,"gold","EI","Entretien de jardins et espaces verts. Tonte, taille de haies, élagage, débroussaillage, plantation et arrosage. Entretien de piscines. Devis gratuit, intervention hebdomadaire possible.","Laurent","Jardin","05 58 33 44 55","/banners/services.jpg"),
-      d("se4","Conciergerie Côte","Services à la personne","Hossegor","40150","4 Rue de la Conciergerie",43.6640,-1.4292,"premium","SAS","Conciergerie pour résidences secondaires et locations saisonnières. Check-in, check-out, ménage, linge, petits travaux et gestion des urgences. Disponible 7j/7 sur la côte landaise.","Valérie","Concierg","05 58 44 55 66","/banners/services.jpg"),
-      d("se5","Pressing Express","Services à la personne","Capbreton","40130","1 Place du Centre",43.6630,-1.4431,"standard","SAS","Pressing et blanchisserie. Nettoyage à sec, repassage, détachage et restauration textile. Livraison à domicile disponible. Traitement des vêtements délicats et cuirs.","Monique","Press","05 58 55 66 77","/banners/services.jpg"),
-    ],
+    demoPros: [],
   },
 
   // ── Sport (slug only — page déjà existante) ──────────────────
@@ -255,13 +194,7 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Que vous recherchiez une salle de fitness, un coach personnel, un professeur de yoga, un club équestre ou une école de kitesurf, notre annuaire vous permet de trouver le bon professionnel du sport dans les Landes en quelques clics.",
     ],
     ctaText: "Club, école de sport, coach ou salle de fitness — référencez votre activité et soyez trouvé par des milliers de sportifs landais.",
-    demoPros: [
-      d("s1","Surf School Biscarrosse","Sport & Fitness","Biscarrosse","40600","1 Avenue de la Plage",44.3970,-1.1650,"gold","SARL","École de surf reconnue. Cours collectifs et particuliers pour tous niveaux. Location de matériel. Stages vacances enfants et adultes. Moniteurs diplômés d'État.","Julien","Waves","05 58 11 22 33"),
-      d("s2","Atlantic Gym","Sport & Fitness","Mont-de-Marsan","40000","15 Rue du Stade",43.8960,-0.5040,"premium","SAS","Salle de sport et fitness. Musculation, cardio, cours collectifs. Coaching personnalisé. Accès 7j/7 avec badge. Essai gratuit sur rendez-vous.","Laura","Fit","05 58 22 33 44"),
-      d("s3","Vélo Évasion Landes","Sport & Fitness","Mimizan","40200","5 Route des Pistes",44.2050,-1.2310,"premium","EURL","Location de vélos électriques et VTT. Circuits guidés en forêt. Balades en famille et séjours vélo tout compris.","Pierre","Vélo","05 58 33 44 55"),
-      d("s4","Tennis Club Dacquois","Sport & Fitness","Dax","40100","8 Allée du Tennis",43.7080,-1.0510,"standard","Association","Club de tennis avec 8 courts et 4 terrains de padel. Cours tous niveaux. Stages vacances.","Marc","Tennis","05 58 44 55 66"),
-      d("s5","Centre Équestre des Pins","Sport & Fitness","Sabres","40630","Chemin des Cavaliers",44.1520,-0.7310,"gold","SARL","Centre équestre en forêt. Cours équitation, randonnées et stages vacances. Poney-club pour enfants.","Sophie","Equestre","05 58 55 66 77"),
-    ],
+    demoPros: [],
   },
 
   // ── Transport ────────────────────────────────────────────────
@@ -280,12 +213,6 @@ export const CATEGORY_META: Record<string, CategoryMeta> = {
       "Que vous ayez besoin d'un taxi pour un rendez-vous médical, d'un déménageur pour votre prochain déménagement dans les Landes, ou d'un coursier pour une livraison urgente, notre annuaire vous met en relation avec le bon professionnel du transport.",
     ],
     ctaText: "Taxi, ambulancier, déménageur, coursier ou loueur de véhicules — référencez votre activité et développez votre clientèle dans les Landes.",
-    demoPros: [
-      d("tr1","Taxi Landes Express","Transport de personnes","Mont-de-Marsan","40000","Gare de Mont-de-Marsan",43.8914,-0.5006,"gold","EI","Taxi conventionné et VTC. Disponible 24h/24 et 7j/7. Transferts gares et aéroports (Pau, Bordeaux, Biarritz). Longues distances. Prise en charge immédiate sur appel.","René","Taxi","05 58 11 22 33","/banners/transport.jpg"),
-      d("tr2","Déménagement 40","Transport de personnes","Dax","40100","Zone Logistique",43.7101,-1.0527,"premium","SARL","Déménagements locaux, régionaux et nationaux. Emballage professionnel, montage et démontage de meubles. Garde-meuble climatisé. Assurance tous risques incluse. Devis gratuit.","Michel","Déménag","05 58 22 33 44","/banners/transport.jpg"),
-      d("tr3","Ambulances Côte","Transport de personnes","Capbreton","40130","Avenue Médicale",43.6630,-1.4431,"gold","SARL","Transport sanitaire conventionné Sécurité Sociale. Ambulances et VSL pour consultations, hospitalisations et dialyses. Disponible 24h/24. Prise en charge tiers-payant.","Claude","Ambu","05 58 33 44 55","/banners/transport.jpg"),
-      d("tr4","Livraison Express 40","Transport de personnes","Biscarrosse","40600","Zone Commerciale",44.3952,-1.1637,"premium","SAS","Coursier et livraison express dans tout le département 40. Colis, documents, marchandises fragiles et alimentaires. Véhicules réfrigérés disponibles. Traçabilité en temps réel.","Antoine","Livr","05 58 44 55 66","/banners/transport.jpg"),
-      d("tr5","Location Véhicules 40","Transport de personnes","Hossegor","40150","Avenue des Pins",43.6640,-1.4292,"standard","SAS","Location de voitures, utilitaires et camping-cars. Tarifs à la journée, semaine et mois. Livraison sur votre lieu de séjour dans les Landes. Assurance incluse, jeune conducteur accepté.","Pierre","Loc","05 58 55 66 77","/banners/transport.jpg"),
-    ],
+    demoPros: [],
   },
 };
