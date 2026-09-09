@@ -92,6 +92,15 @@ export async function deleteEntreprises(sirets: string[]): Promise<number> {
   return rows.length;
 }
 
+/** Récupère une sélection précise d'établissements par leur SIRET — utilisé pour l'export CSV d'une sélection depuis l'admin. */
+export async function getEntreprisesBySirets(sirets: string[]): Promise<EntrepriseRow[]> {
+  if (!isDbConfigured || sirets.length === 0) return [];
+  const { rows } = await sql`
+    SELECT * FROM entreprises_sirene WHERE siret = ANY(${sirets}) ORDER BY commune ASC NULLS LAST, denomination ASC NULLS LAST
+  `;
+  return rows.map(rowToEntreprise);
+}
+
 export async function upsertEtablissement(etab: SireneEtablissement): Promise<UpsertResult> {
   if (!isDbConfigured) return { status: "unchanged", changes: [] };
 
