@@ -1495,7 +1495,6 @@ export default function AdminPage() {
                   merged.photos     = existing?.photos     ?? pro.photos     ?? [];
                   merged.createdAt  = existing?.createdAt  ?? pro.createdAt  ?? new Date().toISOString();
                   merged.updatedAt  = new Date().toISOString();
-                  if (!merged.description) merged.description = `<p>${merged.companyName}</p>`;
                   saveProfessional(merged);
                   imported++;
                 }
@@ -1598,7 +1597,7 @@ export default function AdminPage() {
                     ? [service1, service2, service3].filter(s => s.trim())
                     : existing?.services,
                   shortDescription: gatedVal("Description courte")    || existing?.shortDescription,
-                  description:      gatedVal("Description longue")   || existing?.description || `<p>${companyName}</p>`,
+                  description:      gatedVal("Description longue")   || existing?.description,
                   password:         existing?.password   || "changeme2024",
                   logo:             existing?.logo,
                   banner:           existing?.banner,
