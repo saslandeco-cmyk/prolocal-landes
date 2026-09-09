@@ -428,7 +428,7 @@ export default function ProfessionalProfileView({ id, initialData }: { id: strin
                         <Building2 className="w-5 h-5 text-landes-sage" /> À propos
                       </p>
                       <p className="pro-description leading-relaxed text-gray-600">
-                        Cette fiche présente les informations disponibles sur cette entreprise. Elle n&apos;a pas encore été revendiquée par son propriétaire mais vous pouvez tout de même le contacter.
+                        Ce professionnel n&apos;a pas encore revendiqué sa fiche.
                       </p>
                     </div>
                     {!pro.claimed && (
