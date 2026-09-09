@@ -257,6 +257,36 @@ function SireneManager() {
     }
   };
 
+  const [exportingSelection, setExportingSelection] = useState(false);
+
+  const handleExportSelection = async () => {
+    if (selectedSirets.size === 0) return;
+    setExportingSelection(true);
+    try {
+      const res = await fetch("/api/admin/sirene/export-csv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sirets: Array.from(selectedSirets) }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Erreur lors de l'export de la sélection.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `entreprises-sirene-selection-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Erreur réseau lors de l'export de la sélection.");
+    } finally {
+      setExportingSelection(false);
+    }
+  };
+
   const handleBulkDelete = async () => {
     if (selectedSirets.size === 0) return;
     if (!confirm(`Supprimer définitivement ${selectedSirets.size} entreprise(s) sélectionnée(s) de la base ? Cette action est irréversible.`)) return;
@@ -469,14 +499,24 @@ function SireneManager() {
                   : "Tout sélectionner sur cette page"}
               </span>
               {selectedSirets.size > 0 && (
-                <button
-                  onClick={handleBulkDelete}
-                  disabled={deleting}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 px-3 py-1.5 rounded-lg hover:bg-red-50 flex-shrink-0"
-                >
-                  {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Supprimer la sélection
-                </button>
+                <>
+                  <button
+                    onClick={handleExportSelection}
+                    disabled={exportingSelection}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-landes-forest hover:text-landes-pine disabled:opacity-50 px-3 py-1.5 rounded-lg hover:bg-landes-forest/5 flex-shrink-0"
+                  >
+                    {exportingSelection ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Exporter la sélection
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={deleting}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 px-3 py-1.5 rounded-lg hover:bg-red-50 flex-shrink-0"
+                  >
+                    {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Supprimer la sélection
+                  </button>
+                </>
               )}
             </div>
 
