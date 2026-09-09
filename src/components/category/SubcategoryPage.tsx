@@ -6,7 +6,6 @@ import { Briefcase, ChevronRight, Search, MapPin, X, Loader2, LocateFixed, Arrow
 import { getProfessionalsWithImages } from "@/lib/storage";
 import { getListingRank } from "@/lib/listingOrder";
 import { categorySlug } from "@/lib/profileUrl";
-import { citySlug, CITY_META } from "@/lib/cityData";
 import { Professional } from "@/types";
 import ProfessionalCard from "@/components/professional/ProfessionalCard";
 import HeroPubSlideshow from "@/components/ui/HeroPubSlideshow";
@@ -18,12 +17,6 @@ const MultiMap = dynamic(() => import("@/components/map/MultiMap"), { ssr: false
 interface Props {
   categoryLabel: string;
   subcategoryLabel: string;
-}
-
-/** Formate une liste en énumération française naturelle ("A, B et C"). */
-function joinList(items: string[]): string {
-  if (items.length === 1) return items[0];
-  return `${items.slice(0, -1).join(", ")} et ${items[items.length - 1]}`;
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -387,38 +380,6 @@ export default function SubcategoryPage({ categoryLabel, subcategoryLabel }: Pro
       </section>
 
       <section id="resultats" className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12 scroll-mt-20">
-        {/* Paragraphe dynamique "métier + ville" — généré à partir des vraies
-            communes où ce métier est représenté, jamais un texte inventé. */}
-        {loaded && citiesWithPros.length > 0 && (
-          <div className="card p-6 mb-8 text-gray-700 leading-relaxed">
-            <p>
-              Vous cherchez un{subcategoryLabel.match(/^[aeiouyAEIOUY]/) ? "" : "e"} {subcategoryLabel.toLowerCase()} près de chez vous ?
-              Prolocal-Landes référence des professionnels en {subcategoryLabel} notamment à {joinList(citiesWithPros)}.
-              Consultez les fiches ci-dessous pour comparer les prestations, lire les avis clients et contacter
-              directement le professionnel le plus proche de vous.
-            </p>
-          </div>
-        )}
-
-        {/* Puces par ville (raccourci vers la page ville + catégorie déjà existante) */}
-        {citiesWithPros.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 sm:flex-wrap sm:overflow-visible mb-6">
-            {citiesWithPros.map(city => {
-              const slug = citySlug(city);
-              const meta = CITY_META[slug];
-              return (
-                <Link
-                  key={city}
-                  href={meta ? `/annuaire/${slug}/${categorySlug(categoryLabel)}` : "#"}
-                  className="px-4 py-2 rounded-full text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:border-landes-sage hover:text-landes-forest transition-colors flex-shrink-0 whitespace-nowrap"
-                >
-                  {subcategoryLabel} à {city}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
         {/* Résultats */}
         {!loaded ? (
           <div className="text-center py-16 text-gray-400">Chargement…</div>
