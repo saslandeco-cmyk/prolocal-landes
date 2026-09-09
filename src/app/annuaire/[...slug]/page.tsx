@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { categoryLabelFromSlug, unslugify, extractIdFromSlug } from "@/lib/profileUrl";
 import { cityMetaFromSlug } from "@/lib/cityData";
 import { dbGetProfessionalById } from "@/lib/db/professionals";
 import { dbGetReviewsByPro } from "@/lib/db/reviews";
 import { isDbConfigured } from "@/lib/db/client";
+import { getGoogleRating, combineRatings } from "@/lib/googlePlaces";
 import AnnuaireCatchAllClient from "@/components/professional/AnnuaireCatchAllClient";
 import type { Professional } from "@/types";
 
@@ -40,6 +42,25 @@ async function resolveProfessional(id: string | null): Promise<Professional | nu
   }
 }
 
+/**
+ * Note combinée (avis internes Prolocal-Landes + avis Google via
+ * googlePlaceId, si configuré) — mise en cache par requête (React `cache`)
+ * pour n'appeler la base et l'API Google qu'une seule fois, même si
+ * generateMetadata() et le composant de page l'utilisent tous les deux.
+ */
+const getEnrichedRating = cache(async (pro: Professional) => {
+  const reviews = await dbGetReviewsByPro(pro.id).catch(() => []);
+  const approvedReviews = reviews.filter(r => r.status === "approved");
+  const internal = approvedReviews.length > 0
+    ? { avg: approvedReviews.reduce((s, r) => s + r.rating, 0) / approvedReviews.length, count: approvedReviews.length }
+    : null;
+
+  const google = await getGoogleRating((pro as any).googlePlaceId);
+  const combined = combineRatings(internal, google);
+
+  return { internal, google, combined };
+});
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string[] }> }): Promise<Metadata> {
   const { slug: segments } = await params;
 
@@ -73,16 +94,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const pro = await resolveProfessional(id);
 
   if (pro) {
-    // ── Fiche trouvée en base : métadonnées 100% exactes ──
+    // ── Fiche trouvée en base : métadonnées 100% exactes et dynamiques ──
     const plainDescription = (pro.shortDescription || pro.description || "")
-      .replace(/<[^>]*>/g, "").trim().slice(0, 155);
-    const title = `${pro.companyName} — ${pro.subcategory || pro.category} à ${pro.city} | Prolocal-Landes`;
-    const description = plainDescription ||
-      `${pro.companyName}, ${pro.category} à ${pro.city} (${pro.postalCode}). Coordonnées, avis et informations sur Prolocal-Landes.`;
+      .replace(/<[^>]*>/g, "").trim().slice(0, 145);
+    const { combined } = await getEnrichedRating(pro);
+    const ratingSuffix = combined ? ` ★${combined.avg.toFixed(1)} (${combined.count} avis)` : "";
+
+    const title = `${pro.companyName} — ${pro.subcategory || pro.category} à ${pro.city}${ratingSuffix} | Prolocal-Landes`;
+    const description = (plainDescription ||
+      `${pro.companyName}, ${pro.category} à ${pro.city} (${pro.postalCode}). Coordonnées et informations sur Prolocal-Landes.`) +
+      (combined ? ` Note moyenne : ${combined.avg.toFixed(1)}/5 sur ${combined.count} avis.` : "");
 
     return {
       title,
-      description,
+      description: description.slice(0, 300),
+      keywords: pro.seoKeywords?.length ? pro.seoKeywords : undefined,
       alternates: { canonical: url },
       openGraph: {
         title, description, url,
@@ -183,11 +209,27 @@ export default async function AnnuaireCatchAllPage({ params }: { params: Promise
 
     if (pro) {
       // ── Fiche trouvée en base : JSON-LD complet avec vraies données ──
-      const reviews = await dbGetReviewsByPro(pro.id).catch(() => []);
-      const approvedReviews = reviews.filter(r => r.status === "approved");
-      const avgRating = approvedReviews.length > 0
-        ? approvedReviews.reduce((s, r) => s + r.rating, 0) / approvedReviews.length
-        : null;
+      const { internal, google, combined } = await getEnrichedRating(pro);
+
+      // Horaires d'ouverture au format schema.org (openingHoursSpecification)
+      const dayMap: Record<string, string> = {
+        monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",
+        friday: "Friday", saturday: "Saturday", sunday: "Sunday",
+      };
+      const openingHoursSpecification = pro.openingHours
+        ? Object.entries(pro.openingHours)
+            .filter(([, h]: [string, any]) => h && !h.closed && h.open && h.close)
+            .map(([day, h]: [string, any]) => ({
+              "@type": "OpeningHoursSpecification",
+              dayOfWeek: dayMap[day] || day,
+              opens: h.open,
+              closes: h.close,
+            }))
+        : undefined;
+
+      // Réseaux sociaux / site web disponibles, pour la propriété sameAs
+      const sameAs = [pro.website, pro.socialLink, pro.facebookLink, pro.tiktokLink]
+        .filter((v): v is string => Boolean(v));
 
       jsonLd = {
         "@context": "https://schema.org",
@@ -209,6 +251,7 @@ export default async function AnnuaireCatchAllPage({ params }: { params: Promise
             telephone: pro.phone || undefined,
             email: pro.email || undefined,
             category: pro.subcategory || pro.category,
+            keywords: pro.seoKeywords?.length ? pro.seoKeywords.join(", ") : undefined,
             address: {
               "@type": "PostalAddress",
               streetAddress: pro.address,
@@ -217,14 +260,30 @@ export default async function AnnuaireCatchAllPage({ params }: { params: Promise
               addressCountry: "FR",
             },
             ...(pro.lat && pro.lng ? { geo: { "@type": "GeoCoordinates", latitude: pro.lat, longitude: pro.lng } } : {}),
+            ...(openingHoursSpecification && openingHoursSpecification.length > 0 ? { openingHoursSpecification } : {}),
+            ...(sameAs.length > 0 ? { sameAs } : {}),
             areaServed: "Landes (40), France",
-            ...(avgRating ? {
+            // Note combinée avis internes Prolocal-Landes + avis Google (si
+            // googlePlaceId renseigné et GOOGLE_PLACES_API_KEY configurée).
+            ...(combined ? {
               aggregateRating: {
                 "@type": "AggregateRating",
-                ratingValue: avgRating.toFixed(1),
-                reviewCount: approvedReviews.length,
+                ratingValue: combined.avg.toFixed(1),
+                reviewCount: combined.count,
+                bestRating: "5",
+                worstRating: "1",
               },
             } : {}),
+            // Détail des avis Google, exposés séparément à titre informatif
+            // (schema.org ne définit pas de propriété dédiée standardisée
+            // pour distinguer la source des avis au sein d'un même
+            // aggregateRating — Google recommande de fusionner les sources
+            // en une seule note globale, ce qui est fait ci-dessus).
+            ...(google ? { additionalProperty: {
+              "@type": "PropertyValue",
+              name: "Note Google",
+              value: `${google.rating}/5 (${google.reviewCount} avis Google)`,
+            } } : {}),
           },
         ],
       };
