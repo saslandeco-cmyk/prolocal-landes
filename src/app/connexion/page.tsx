@@ -270,15 +270,6 @@ export default function ConnexionPage() {
           )}
 
         </div>
-
-        {/* Demo hint */}
-        {view === "login" && (
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
-            <p className="font-medium mb-1">Comptes de démonstration :</p>
-            <p>Email : <code className="bg-blue-100 px-1 rounded">boulangerie@example.com</code></p>
-            <p>Mot de passe : <code className="bg-blue-100 px-1 rounded">demo123</code></p>
-          </div>
-        )}
       </div>
     </div>
   );
