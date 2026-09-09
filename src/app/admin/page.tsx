@@ -9,7 +9,23 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import RichTextEditor from "@/components/ui/RichTextEditor";
 import { REQUIRE_VALIDATION } from "@/lib/config";
+import { geocodeAddress } from "@/lib/geocode";
 import type { OpeningHours } from "@/types";
+
+/**
+ * Géocode immédiatement une fiche si elle n'a pas encore de coordonnées
+ * GPS (lat/lng), pour que son marker apparaisse sur la carte dès son
+ * enregistrement — sans attendre qu'un visiteur consulte sa fiche
+ * publique (seul moment où la géolocalisation se déclenchait auparavant).
+ * Retourne la fiche telle quelle si déjà géolocalisée ou si l'adresse est
+ * introuvable (échec silencieux, n'empêche jamais l'enregistrement).
+ */
+async function ensureGeocoded(pro: Professional): Promise<Professional> {
+  if (pro.lat && pro.lng) return pro;
+  if (!pro.address || !pro.city || !pro.postalCode) return pro;
+  const coords = await geocodeAddress(pro.address, pro.city, pro.postalCode).catch(() => null);
+  return coords ? { ...pro, lat: coords.lat, lng: coords.lng } : pro;
+}
 
 // Bouton "Enregistrer" pour la photo hero — lit l'état depuis le storage
 // Colonnes disponibles pour l'export / import CSV — sélectionnables individuellement
@@ -1111,7 +1127,7 @@ export default function AdminPage() {
     if (!selectedPro) return;
     setSaving(true);
     await new Promise((r) => setTimeout(r, 400));
-    const updated = { ...selectedPro, ...editForm, updatedAt: new Date().toISOString() };
+    const updated = await ensureGeocoded({ ...selectedPro, ...editForm, updatedAt: new Date().toISOString() });
     saveProfessional(updated);
     refresh();
     setSelectedPro(updated);
@@ -1130,7 +1146,7 @@ export default function AdminPage() {
     if (!selectedPro) return;
     setSavingFullEdit(true);
     await new Promise(r => setTimeout(r, 400));
-    const updated = { ...selectedPro, ...fullEditForm, updatedAt: new Date().toISOString() } as Professional;
+    const updated = await ensureGeocoded({ ...selectedPro, ...fullEditForm, updatedAt: new Date().toISOString() } as Professional);
     saveProfessional(updated);
     refresh();
     setSelectedPro(updated);
@@ -1495,7 +1511,7 @@ export default function AdminPage() {
                   merged.photos     = existing?.photos     ?? pro.photos     ?? [];
                   merged.createdAt  = existing?.createdAt  ?? pro.createdAt  ?? new Date().toISOString();
                   merged.updatedAt  = new Date().toISOString();
-                  saveProfessional(merged);
+                  saveProfessional(await ensureGeocoded(merged));
                   imported++;
                 }
                 await getProfessionalsWithImages().then(setPros);
@@ -1605,7 +1621,7 @@ export default function AdminPage() {
                   createdAt:        existing?.createdAt  || now,
                   updatedAt:        now,
                 };
-                saveProfessional(updated);
+                saveProfessional(await ensureGeocoded(updated));
                 imported++;
               }
 
