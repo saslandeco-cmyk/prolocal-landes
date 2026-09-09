@@ -41,6 +41,14 @@ export interface Professional {
   };
   adBannerImage?: string;
   seoKeywords?: string[];
+  /**
+   * Identifiant "Place ID" Google Business Profile de l'établissement
+   * (ex: ChIJN1t_tDeuEmsRUsoyG83frY4). Permet d'afficher la note et le
+   * nombre d'avis Google dans les données structurées SEO de la fiche, en
+   * complément des avis internes Prolocal-Landes. Facultatif — voir
+   * src/lib/googlePlaces.ts pour la configuration (GOOGLE_PLACES_API_KEY).
+   */
+  googlePlaceId?: string;
   address: string;
   city: string;
   postalCode: string;
