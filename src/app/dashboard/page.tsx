@@ -867,6 +867,20 @@ function DashboardContent() {
                 ? <input value={form.website || ""} onChange={e => update("website", e.target.value)} className="input-field" placeholder="https://mon-site.fr" />
                 : <p className="text-gray-900 font-medium">{pro.website || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
             </div>
+            <div className="sm:col-span-2">
+              <label className="label">Identifiant Google Business Profile <span className="text-gray-400 font-normal text-xs">(facultatif — affiche vos avis Google sur votre fiche)</span></label>
+              {editing
+                ? <>
+                    <input value={(form as any).googlePlaceId || ""} onChange={e => update("googlePlaceId", e.target.value)} className="input-field" placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Pour le trouver : cherchez votre établissement sur{" "}
+                      <a href="https://developers.google.com/maps/documentation/places/web-service/place-id" target="_blank" rel="noopener noreferrer" className="text-landes-forest underline">
+                        l&apos;outil Place ID Finder de Google
+                      </a>, et copiez l&apos;identifiant obtenu ici.
+                    </p>
+                  </>
+                : <p className="text-gray-900 font-medium">{(pro as any).googlePlaceId || <span className="text-gray-400 italic text-sm">Non renseigné</span>}</p>}
+            </div>
             <div>
               <label className="label">Téléphone</label>
               {editing
