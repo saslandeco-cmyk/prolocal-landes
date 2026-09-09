@@ -41,7 +41,6 @@ export default function CategoryPage({ meta }: Props) {
   const [mapLoaded, setMapLoaded] = useState(false);
   const queryRef = useRef<HTMLDivElement>(null);
   const cityRef  = useRef<HTMLDivElement>(null);
-  const now = useRef(new Date().toISOString()).current;
 
   // Géolocalisation "Autour de moi"
   const [geoLoading, setGeoLoading] = useState(false);
@@ -100,12 +99,7 @@ export default function CategoryPage({ meta }: Props) {
       const real = (await getProfessionalsWithImages()).filter(
         p => p.status === "active" && p.category === meta.category
       );
-      const merged = [...real];
-      meta.demoPros.forEach(d => {
-        if (!merged.find(p => p.id === d.id))
-          merged.push({ ...d, createdAt: now, updatedAt: now });
-      });
-      merged.sort((a, b) => getListingRank(a) - getListingRank(b));
+      const merged = [...real].sort((a, b) => getListingRank(a) - getListingRank(b));
       setPros(merged);
       setFiltered(merged);
       setMapLoaded(true);
