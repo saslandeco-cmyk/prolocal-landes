@@ -61,6 +61,32 @@ interface SearchResult {
  * Recherche les établissements actifs correspondant à un ou plusieurs
  * codes APE, filtrés sur un département (Landes = 40 par défaut).
  */
+/**
+ * Nettoie l'adresse brute renvoyée par l'API, qui inclut par défaut le code
+ * postal et la ville à la fin (ex: "12 RUE DE LA PAIX 40100 DAX") — déjà
+ * stockés séparément dans les colonnes `codePostal`/`commune`. Ne garde que
+ * la partie voie/numéro, pour éviter la redondance dans la colonne adresse.
+ *
+ * S'ancre uniquement sur le code postal (5 chiffres, sans ambiguïté) plutôt
+ * que sur le nom de la commune, dont l'orthographe/accentuation peut varier
+ * entre le libellé officiel et l'adresse brute (ex: "SAINT-PAUL-LES-DAX"
+ * sans accent dans l'adresse vs "Saint-Paul-lès-Dax" dans libelle_commune).
+ */
+function cleanAdresse(rawAdresse: string | null | undefined, codePostal: string | null | undefined): string | null {
+  if (!rawAdresse) return null;
+  let cleaned = rawAdresse.trim();
+
+  if (codePostal) {
+    // Coupe tout à partir du code postal (mot entier) jusqu'à la fin de la chaîne
+    const idx = cleaned.search(new RegExp(`\\b${codePostal}\\b`));
+    if (idx !== -1) cleaned = cleaned.slice(0, idx);
+  }
+
+  // Retire une virgule/tiret résiduel en fin de chaîne
+  cleaned = cleaned.replace(/[,\-\s]+$/, "").trim();
+  return cleaned || null;
+}
+
 export async function searchEtablissements(opts: SearchOptions): Promise<SearchResult> {
   const { codesApe, departement = "40", page = 1, perPage = 25 } = opts;
 
@@ -124,7 +150,7 @@ export async function searchEtablissements(opts: SearchOptions): Promise<SearchR
         estSiege: Boolean(etab.est_siege),
         etatAdministratif: etab.etat_administratif || "A",
         dateCreation: etab.date_creation || null,
-        adresse: etab.adresse || etab.geo_adresse || null,
+        adresse: cleanAdresse(etab.adresse || etab.geo_adresse, cp),
         codePostal: cp || null,
         commune: etab.libelle_commune || null,
         codeCommuneInsee: etab.code_commune || null,
