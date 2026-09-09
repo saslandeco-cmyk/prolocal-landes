@@ -36,133 +36,67 @@ const FEATURED_TABS: FeaturedTab[] = [
     label: "Alimentation",
     icon: "🥖",
     category: "Alimentation & Épicerie",
-    pros: [
-      { id: "a1", name: "Boulangerie des Pins", job: "Boulanger-Pâtissier", city: "Mont-de-Marsan", phone: "05 58 11 22 33", desc: "Pain au levain, viennoiseries maison et pâtisseries artisanales cuites au four à bois depuis 1987.", badge: "gold", from: "#3D1F0A", to: "#7C3D1A", emoji: "🥖", initials: "BP", banner: "/banners/alimentation.jpg" },
-      { id: "a2", name: "Fromagerie Landaise", job: "Fromager affineur", city: "Dax", phone: "05 58 22 33 44", desc: "Sélection de fromages fermiers et affinés. Cave à fromages avec 80 références dont les spécialités locales.", badge: "premium", from: "#4A3A0A", to: "#8A6A1A", emoji: "🧀", initials: "FL", banner: "/banners/alimentation.jpg" },
-      { id: "a3", name: "Épicerie du Marché", job: "Épicier fine alimentaire", city: "Hossegor", phone: "05 58 33 44 55", desc: "Produits locaux et régionaux de qualité. Conserves artisanales, foie gras, confits et vins des Landes.", from: "#2A1A0A", to: "#5A3A1A", emoji: "🧺", initials: "EM", banner: "/banners/alimentation.jpg" },
-      { id: "a4", name: "Charcuterie Dupont", job: "Charcutier-Traiteur", city: "Hagetmau", phone: "05 58 44 55 66", desc: "Charcuterie artisanale : jambon de Bayonne, saucissons, pâtés et rillettes. Traiteur pour événements.", badge: "gold", from: "#5A1A1A", to: "#8A2A2A", emoji: "🥩", initials: "CD", banner: "/banners/alimentation.jpg" },
-      { id: "a5", name: "Marché Bio Landes", job: "Primeur & Épicerie bio", city: "Biscarrosse", phone: "05 58 55 66 77", desc: "Fruits et légumes biologiques locaux, produits en vrac et circuits courts. Panier bio hebdomadaire.", badge: "premium", from: "#1A3A0A", to: "#2A6A1A", emoji: "🥦", initials: "MB", banner: "/banners/alimentation.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Artisanat",
     icon: "🎨",
     category: "Artisanat & Métiers d'art",
-    pros: [
-      { id: "b1", name: "Poterie Landaise", job: "Céramiste & Potier", city: "Dax", phone: "05 58 12 34 56", desc: "Création de pièces uniques en terre cuite landaise. Ateliers ouverts au public toute l'année.", badge: "gold", from: "#5C2D0A", to: "#A0522D", emoji: "🏺", initials: "PL", banner: "/banners/artisanat.jpg" },
-      { id: "b2", name: "Forge des Pins", job: "Forgeron d'art", city: "Mont-de-Marsan", phone: "05 58 23 45 67", desc: "Ferronnerie d'art sur mesure, portails, mobilier et décoration intérieure en métal forgé.", badge: "premium", from: "#1A1A2E", to: "#16213E", emoji: "⚒️", initials: "FP", banner: "/banners/artisanat.jpg" },
-      { id: "b3", name: "Maroquinerie Côte", job: "Maroquinier artisan", city: "Hossegor", phone: "05 58 34 56 78", desc: "Sacs, ceintures et accessoires en cuir tannés végétalement. Créations et réparations sur mesure.", from: "#4A1A00", to: "#8B4513", emoji: "👜", initials: "MC", banner: "/banners/artisanat.jpg" },
-      { id: "b4", name: "Menuiserie Larroque", job: "Menuisier ébéniste", city: "Tartas", phone: "05 58 44 55 66", desc: "Fabrication de meubles sur mesure en bois massif. Restauration de pièces anciennes.", badge: "premium", from: "#1A2E1A", to: "#2D5A2D", emoji: "🪵", initials: "ML", banner: "/banners/artisanat.jpg" },
-      { id: "b5", name: "Verrerie des Landes", job: "Souffleur de verre", city: "Mimizan", phone: "05 58 55 66 77", desc: "Art du verre soufflé à la bouche. Pièces décoratives et fonctionnelles en verre coloré.", from: "#0A2A3A", to: "#1A5A7A", emoji: "🫧", initials: "VL", banner: "/banners/artisanat.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Bâtiment",
     icon: "🔨",
     category: "Bâtiment & Travaux",
-    pros: [
-      { id: "c1", name: "Charpente Landaise", job: "Charpentier-Couvreur", city: "Tartas", phone: "05 58 78 90 12", desc: "Charpente traditionnelle et ossature bois. Couverture tuile et ardoise. Devis gratuit sous 48h.", badge: "gold", from: "#1A2A0A", to: "#2D5A1F", emoji: "🏗️", initials: "CL", banner: "/banners/batiment.jpg" },
-      { id: "c2", name: "Plâtrerie Soleil", job: "Plâtrier-Peintre", city: "Morcenx", phone: "05 58 89 01 23", desc: "Décoration intérieure, enduits décoratifs, peinture et pose de revêtements muraux et sols.", badge: "premium", from: "#2A2A1A", to: "#4A4A2A", emoji: "🖌️", initials: "PS", banner: "/banners/batiment.jpg" },
-      { id: "c3", name: "Électricité Côte", job: "Électricien certifié", city: "Capbreton", phone: "05 58 90 12 34", desc: "Installation électrique neuf et rénovation, mise aux normes NF C 15-100, domotique et bornes EV.", from: "#0A1A3A", to: "#1A3A6A", emoji: "⚡", initials: "EC", banner: "/banners/batiment.jpg" },
-      { id: "c4", name: "Maçonnerie Dupuy", job: "Maçon & Carreleur", city: "Aire-sur-l'Adour", phone: "05 58 01 12 23", desc: "Construction, rénovation et extension. Pose de carrelage, dallage et parquet. 20 ans d'expérience.", badge: "premium", from: "#3A2A1A", to: "#6A4A2A", emoji: "🧱", initials: "MD", banner: "/banners/batiment.jpg" },
-      { id: "c5", name: "Plomberie Garros", job: "Plombier-Chauffagiste", city: "Hagetmau", phone: "05 58 12 23 34", desc: "Plomberie, chauffage et climatisation. Installation de pompes à chaleur et chauffe-eaux solaires.", from: "#1A2A4A", to: "#2A4A6A", emoji: "🔧", initials: "PG", banner: "/banners/batiment.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Bien-être",
     icon: "💆",
     category: "Beauté & Bien-être",
-    pros: [
-      { id: "d1", name: "Spa des Thermes", job: "Institut de beauté & Spa", city: "Dax", phone: "05 58 01 23 45", desc: "Soins visage et corps, massages relaxants, balnéothérapie. Forfaits bien-être cadeau disponibles.", badge: "gold", from: "#3A1A3A", to: "#6A2A6A", emoji: "🧖", initials: "ST", banner: "/banners/beaute.jpg" },
-      { id: "d2", name: "Yoga Océan", job: "Professeure de Yoga", city: "Hossegor", phone: "06 45 67 89 01", desc: "Cours de yoga tous niveaux, yoga nidra et méditation. Retraites bien-être en bord d'océan.", badge: "premium", from: "#1A2A3A", to: "#2A4A6A", emoji: "🧘", initials: "YO", banner: "/banners/beaute.jpg" },
-      { id: "d3", name: "Coiffure Naturelle", job: "Coiffeur bio & éco-responsable", city: "Mont-de-Marsan", phone: "05 58 12 23 34", desc: "Coloration végétale, soins naturels, coupes femme-homme. Produits certifiés biologiques.", from: "#2A1A2A", to: "#4A2A4A", emoji: "✂️", initials: "CN", banner: "/banners/beaute.jpg" },
-      { id: "d4", name: "Ostéopathie Côte", job: "Ostéopathe D.O.", city: "Soustons", phone: "05 58 34 45 56", desc: "Ostéopathie pour adultes, enfants et nourrissons. Consultations sur rendez-vous. Parking gratuit.", badge: "premium", from: "#0A2A2A", to: "#1A4A4A", emoji: "🩺", initials: "OC", banner: "/banners/beaute.jpg" },
-      { id: "d5", name: "Institut Soleil", job: "Esthéticienne & Onglerie", city: "Biscarrosse", phone: "05 58 45 56 67", desc: "Soins du visage, épilations, poses d'ongles et semi-permanent. Ambiance cosy et personnalisée.", from: "#3A0A1A", to: "#6A1A3A", emoji: "💅", initials: "IS", banner: "/banners/beaute.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Commerce",
     icon: "🛍️",
     category: "Commerce & Vente",
-    pros: [
-      { id: "e1", name: "Surf Shop Hossegor", job: "Surf & Sports de glisse", city: "Hossegor", phone: "05 58 11 22 33", desc: "Vente et location de planches de surf, combinaisons et accessoires. Réparation de boards.", badge: "gold", from: "#0A2A4A", to: "#1A4A7A", emoji: "🏄", initials: "SH", banner: "/banners/commerce.jpg" },
-      { id: "e2", name: "Librairie des Pins", job: "Librairie indépendante", city: "Dax", phone: "05 58 22 33 44", desc: "Librairie généraliste avec rayon régionalisme landais. Commandes spéciales et dédicaces.", badge: "premium", from: "#2A1A0A", to: "#5A3A1A", emoji: "📚", initials: "LP", banner: "/banners/commerce.jpg" },
-      { id: "e3", name: "Mode & Nature", job: "Boutique de mode éco", city: "Mont-de-Marsan", phone: "05 58 33 44 55", desc: "Vêtements et accessoires mode éco-responsables et fabriqués en France. Collections femme et homme.", from: "#1A2A1A", to: "#2A4A2A", emoji: "👗", initials: "MN", banner: "/banners/commerce.jpg" },
-      { id: "e4", name: "Déco Landaise", job: "Décoration & Cadeaux", city: "Capbreton", phone: "05 58 44 55 66", desc: "Articles de décoration intérieure, cadeaux et souvenirs landais. Créations d'artisans locaux.", badge: "premium", from: "#3A2A0A", to: "#6A4A1A", emoji: "🏠", initials: "DL", banner: "/banners/commerce.jpg" },
-      { id: "e5", name: "Sport & Outdoor", job: "Articles de sport & randonnée", city: "Biscarrosse", phone: "05 58 55 66 77", desc: "Équipements randonnée, vélo, camping et sports outdoor. Conseils personnalisés par des passionnés.", from: "#1A3A1A", to: "#2A5A2A", emoji: "🎒", initials: "SO", banner: "/banners/commerce.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Agriculture",
     icon: "🌾",
     category: "Culture & Élevage",
-    pros: [
-      { id: "m1", name: "Ferme des Landes", job: "Producteur canard & Foie gras", city: "Hagetmau", phone: "05 58 11 22 33", desc: "Élevage traditionnel de canards, production de foie gras, magrets et confits. Vente à la ferme.", badge: "gold", from: "#3A2A0A", to: "#6A4A1A", emoji: "🦆", initials: "FL", banner: "/banners/agriculture.jpg" },
-      { id: "m2", name: "Pépinière Landaise", job: "Pépiniériste & Paysagiste", city: "Sabres", phone: "05 58 22 33 44", desc: "Vente de plants, arbres et arbustes adaptés au climat landais. Création et entretien de jardins.", badge: "premium", from: "#1A3A0A", to: "#2A5A1A", emoji: "🌱", initials: "PL", banner: "/banners/agriculture.jpg" },
-      { id: "m3", name: "Apiculture Forêt", job: "Apiculteur & Miels artisanaux", city: "Labouheyre", phone: "05 58 33 44 55", desc: "Miels de forêt landaise, de fleurs et de bruyère. Propolis, cire et produits de la ruche.", from: "#4A3A0A", to: "#7A6A1A", emoji: "🍯", initials: "AF", banner: "/banners/agriculture.jpg" },
-      { id: "m4", name: "Maraîchage Bio", job: "Maraîcher biologique", city: "Aire-sur-l'Adour", phone: "05 58 44 55 66", desc: "Légumes de saison cultivés sans pesticides. AMAP et marchés locaux. Paniers hebdomadaires.", badge: "premium", from: "#0A3A1A", to: "#1A5A2A", emoji: "🥕", initials: "MB", banner: "/banners/agriculture.jpg" },
-      { id: "m5", name: "Sylviculture Landes", job: "Exploitant forestier", city: "Biscarrosse", phone: "05 58 55 66 77", desc: "Exploitation et entretien de forêts de pins maritimes. Élagage, abattage et valorisation du bois.", from: "#1A2A0A", to: "#2A4A1A", emoji: "🌲", initials: "SL", banner: "/banners/agriculture.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Immobilier",
     icon: "🏠",
     category: "Immobilier",
-    pros: [
-      { id: "j1", name: "Landes Immobilier", job: "Agence immobilière", city: "Mont-de-Marsan", phone: "05 58 11 22 33", desc: "Vente et location de maisons, appartements et terrains dans tout le département des Landes.", badge: "gold", from: "#1A2A3A", to: "#2A4A6A", emoji: "🏡", initials: "LI", banner: "/banners/immobilier.jpg" },
-      { id: "j2", name: "Côte Immo", job: "Immobilier balnéaire", city: "Hossegor", phone: "05 58 22 33 44", desc: "Spécialiste de l'immobilier sur la côte landaise. Villas, appartements et investissements locatifs.", badge: "premium", from: "#0A2A4A", to: "#1A4A7A", emoji: "🌊", initials: "CI", banner: "/banners/immobilier.jpg" },
-      { id: "j3", name: "Gestion Landes", job: "Gestion locative", city: "Dax", phone: "05 58 33 44 55", desc: "Gestion locative complète : recherche de locataires, états des lieux, quittances et travaux.", from: "#2A2A1A", to: "#4A4A2A", emoji: "🔑", initials: "GL", banner: "/banners/immobilier.jpg" },
-      { id: "j4", name: "Expertise Bâtiment", job: "Expert immobilier", city: "Biscarrosse", phone: "05 58 44 55 66", desc: "Expertise immobilière, diagnostics obligatoires (DPE, amiante, plomb) et bilans énergétiques.", badge: "premium", from: "#3A1A0A", to: "#5A3A1A", emoji: "📋", initials: "EB", banner: "/banners/immobilier.jpg" },
-      { id: "j5", name: "Construction Landes", job: "Constructeur de maisons", city: "Tartas", phone: "05 58 55 66 77", desc: "Construction de maisons individuelles sur mesure. Du plan à la remise des clés. Garantie décennale.", from: "#1A3A1A", to: "#2A5A2A", emoji: "🏗️", initials: "CL", banner: "/banners/immobilier.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Numérique",
     icon: "💻",
     category: "Informatique & Numérique",
-    pros: [
-      { id: "k1", name: "Web Landes", job: "Agence web & Digital", city: "Mont-de-Marsan", phone: "05 58 11 22 33", desc: "Création de sites web, applications mobiles et solutions e-commerce. Référencement SEO et Google Ads.", badge: "gold", from: "#0A1A3A", to: "#1A3A6A", emoji: "🌐", initials: "WL", banner: "/banners/informatique.jpg" },
-      { id: "k2", name: "Répar'Info 40", job: "Réparation & Dépannage informatique", city: "Dax", phone: "05 58 22 33 44", desc: "Réparation PC, Mac et smartphones. Suppression virus, récupération de données et mises à niveau.", badge: "premium", from: "#1A2A1A", to: "#2A4A2A", emoji: "🔧", initials: "RI", banner: "/banners/informatique.jpg" },
-      { id: "k3", name: "Studio Créa Digital", job: "Graphiste & Identité visuelle", city: "Hossegor", phone: "05 58 33 44 55", desc: "Création de logos, chartes graphiques, supports print et digitaux. Direction artistique de projets.", from: "#3A0A3A", to: "#6A1A6A", emoji: "🎨", initials: "SC", banner: "/banners/informatique.jpg" },
-      { id: "k4", name: "Formation Numérique", job: "Formateur informatique", city: "Biscarrosse", phone: "05 58 44 55 66", desc: "Formations bureautique, réseaux sociaux et sécurité informatique pour particuliers et entreprises.", badge: "premium", from: "#0A2A2A", to: "#1A4A4A", emoji: "📱", initials: "FN", banner: "/banners/informatique.jpg" },
-      { id: "k5", name: "Cloud Solutions 40", job: "Infogérance & Cloud", city: "Mont-de-Marsan", phone: "05 58 55 66 77", desc: "Solutions cloud, hébergement, sauvegarde et cybersécurité pour TPE et PME des Landes.", from: "#1A1A3A", to: "#2A2A5A", emoji: "☁️", initials: "CS", banner: "/banners/informatique.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Services",
     icon: "🤝",
     category: "Services à la personne",
-    pros: [
-      { id: "n1", name: "Aide à Domicile Landes", job: "Aide aux personnes âgées", city: "Mont-de-Marsan", phone: "05 58 11 22 33", desc: "Aide à domicile pour personnes âgées et dépendantes. Ménage, repas, courses et accompagnements.", badge: "gold", from: "#1A2A3A", to: "#2A4A5A", emoji: "🏠", initials: "AD", banner: "/banners/services.jpg" },
-      { id: "n2", name: "Baby-Sitting Pro", job: "Garde d'enfants à domicile", city: "Dax", phone: "05 58 22 33 44", desc: "Garde d'enfants à votre domicile, jeux éducatifs et aide aux devoirs. Disponible soirs et week-ends.", badge: "premium", from: "#3A1A2A", to: "#5A2A4A", emoji: "👶", initials: "BP", banner: "/banners/services.jpg" },
-      { id: "n3", name: "Jardinage Landes", job: "Jardinier & Espaces verts", city: "Biscarrosse", phone: "05 58 33 44 55", desc: "Entretien de jardins, taille de haies, tonte et élagage. Création de massifs et potagers.", from: "#1A3A0A", to: "#2A5A1A", emoji: "🌿", initials: "JL", banner: "/banners/services.jpg" },
-      { id: "n4", name: "Conciergerie Côte", job: "Services conciergerie", city: "Hossegor", phone: "05 58 44 55 66", desc: "Services de conciergerie pour résidences secondaires : ménage, accueil locataires, petits travaux.", badge: "premium", from: "#2A1A0A", to: "#4A3A1A", emoji: "🗝️", initials: "CC", banner: "/banners/services.jpg" },
-      { id: "n5", name: "Pressing Rapide", job: "Pressing & Blanchisserie", city: "Capbreton", phone: "05 58 55 66 77", desc: "Nettoyage à sec, pressing express et blanchisserie. Service livraison à domicile disponible.", from: "#0A2A3A", to: "#1A3A5A", emoji: "👔", initials: "PR", banner: "/banners/services.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Sport",
     icon: "🏄",
     category: "Sport & Fitness",
-    pros: [
-      { id: "o1", name: "Surf School Bisca", job: "École de surf", city: "Biscarrosse", phone: "05 58 11 22 33", desc: "Cours de surf collectifs et particuliers pour tous niveaux. Location de matériel. Stages vacances.", badge: "gold", from: "#0A2A4A", to: "#1A4A7A", emoji: "🏄", initials: "SS", banner: "/banners/sport.jpg" },
-      { id: "o2", name: "Salle de Sport Landes", job: "Coach sportif & Fitness", city: "Mont-de-Marsan", phone: "05 58 22 33 44", desc: "Coaching personnalisé, cours collectifs et salle de musculation. Programmes nutrition inclus.", badge: "premium", from: "#1A1A3A", to: "#2A2A5A", emoji: "💪", initials: "SL", banner: "/banners/sport.jpg" },
-      { id: "o3", name: "Vélo Évasion 40", job: "Vélo & Cycle touring", city: "Mimizan", phone: "05 58 33 44 55", desc: "Location de vélos électriques et VTT. Circuits guidés en forêt et sur les pistes cyclables landaises.", from: "#1A2A1A", to: "#2A4A2A", emoji: "🚵", initials: "VE", banner: "/banners/sport.jpg" },
-      { id: "o4", name: "Tennis Club Dax", job: "Tennis & Padel", city: "Dax", phone: "05 58 44 55 66", desc: "Club de tennis avec 8 courts dont 2 couverts et 4 terrains de padel. Cours enfants et adultes.", badge: "premium", from: "#2A3A0A", to: "#4A5A1A", emoji: "🎾", initials: "TC", banner: "/banners/sport.jpg" },
-      { id: "o5", name: "Équitation Landes", job: "Centre équestre", city: "Sabres", phone: "05 58 55 66 77", desc: "Centre équestre en forêt avec pension de chevaux. Cours d'équitation, balades et randonnées.", from: "#3A2A1A", to: "#5A4A2A", emoji: "🐴", initials: "EL", banner: "/banners/sport.jpg" },
-    ],
+    pros: [],
   },
   {
     label: "Transport",
     icon: "🚚",
     category: "Transport de personnes",
-    pros: [
-      { id: "p1", name: "Taxi Landes Express", job: "Taxi & VTC", city: "Mont-de-Marsan", phone: "05 58 11 22 33", desc: "Taxi conventionné et VTC disponibles 24h/24. Transferts aéroports Bordeaux et Pau. Longues distances.", badge: "gold", from: "#1A1A3A", to: "#2A2A5A", emoji: "🚕", initials: "TL", banner: "/banners/transport.jpg" },
-      { id: "p2", name: "Déménagement 40", job: "Déménageur professionnel", city: "Dax", phone: "05 58 22 33 44", desc: "Déménagements locaux et nationaux. Emballage, montage et démontage de meubles. Garde-meuble.", badge: "premium", from: "#2A1A0A", to: "#4A3A1A", emoji: "📦", initials: "D4", banner: "/banners/transport.jpg" },
-      { id: "p3", name: "Ambulances Côte", job: "Transport sanitaire", city: "Capbreton", phone: "05 58 33 44 55", desc: "Transports sanitaires non urgents, VSL et ambulances. Conventionnés Sécurité Sociale.", from: "#0A2A2A", to: "#1A4A4A", emoji: "🚑", initials: "AC", banner: "/banners/transport.jpg" },
-      { id: "p4", name: "Livraison Express 40", job: "Coursier & Livraison", city: "Mont-de-Marsan", phone: "05 58 44 55 66", desc: "Livraison express et coursier dans tout le département. Colis, documents et marchandises fragiles.", badge: "premium", from: "#3A2A0A", to: "#5A4A1A", emoji: "📫", initials: "LE", banner: "/banners/transport.jpg" },
-      { id: "p5", name: "Auto-Partage Landes", job: "Location de véhicules", city: "Biscarrosse", phone: "05 58 55 66 77", desc: "Location de voitures, utilitaires et camping-cars. Tarifs à la journée ou à la semaine. Livraison possible.", from: "#1A2A3A", to: "#2A3A5A", emoji: "🚐", initials: "AL", banner: "/banners/transport.jpg" },
-    ],
+    pros: [],
   },
 ];
 
@@ -421,30 +355,28 @@ function proToFeatured(p: Professional): FeaturedPro {
 export default function FeaturedProfessionals() {
   const [activeTab, setActiveTab] = useState(0);
   const [mergedTabs, setMergedTabs] = useState<FeaturedTab[]>(FEATURED_TABS);
+  const [loaded, setLoaded] = useState(false);
 
-  // Charge les pros Gold réels et les préfixe aux démos
+  // Charge uniquement les vrais professionnels Gold actifs — plus aucune
+  // donnée de démonstration en repli.
   useEffect(() => {
     (async () => {
       const realPros = (await getProfessionalsWithImages()).filter(p => p.status === "active" && p.plan === "gold");
 
-    const updated = FEATURED_TABS.map(tab => {
-      const realForTab = realPros
-        .filter(p => p.category === tab.category)
-        .map(proToFeatured);
-
-      // Déduplique : retire les démos qui auraient le même id qu'un vrai pro
-      const demoIds = new Set(realForTab.map(r => r.id));
-      const filteredDemo = tab.pros.filter(d => !demoIds.has(d.id));
-
-      return {
+      const updated = FEATURED_TABS.map(tab => ({
         ...tab,
-        pros: [...realForTab, ...filteredDemo],
-      };
-    });
+        pros: realPros.filter(p => p.category === tab.category).map(proToFeatured),
+      }));
 
       setMergedTabs(updated);
+      setLoaded(true);
     })();
   }, [activeTab]); // recharge à chaque changement d'onglet
+
+  // N'affiche la section que s'il existe au moins un vrai professionnel
+  // Gold à mettre en avant, sur au moins une catégorie.
+  const hasAnyRealPro = mergedTabs.some(tab => tab.pros.length > 0);
+  if (loaded && !hasAnyRealPro) return null;
 
   return (
     <section className="bg-white py-10 sm:py-12 lg:py-16">
@@ -477,7 +409,13 @@ export default function FeaturedProfessionals() {
 
         {/* Carrousel */}
         <div className="px-3 sm:px-6">
-          <ProCarousel key={activeTab} pros={mergedTabs[activeTab].pros} tabKey={activeTab} />
+          {mergedTabs[activeTab].pros.length === 0 ? (
+            <p className="text-center text-gray-400 py-10 text-sm">
+              Aucun professionnel Gold à la une pour le moment dans cette catégorie.
+            </p>
+          ) : (
+            <ProCarousel key={activeTab} pros={mergedTabs[activeTab].pros} tabKey={activeTab} />
+          )}
         </div>
 
         {/* CTA */}
