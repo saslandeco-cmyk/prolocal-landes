@@ -16,6 +16,7 @@ import PlanBadge from "@/components/ui/PlanBadge";
 import StatusBadge from "@/components/ui/StatusBadge";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import RichTextEditor from "@/components/ui/RichTextEditor";
+import BannerCropper from "@/components/ui/BannerCropper";
 import SubscriptionManager, { type SubscriptionManagerHandle } from "@/components/professional/SubscriptionManager";
 import ComplementaryOptionsManager from "@/components/professional/ComplementaryOptionsManager";
 import StripePaymentForm from "@/components/professional/StripePaymentForm";
@@ -69,6 +70,7 @@ function DashboardContent() {
   const subscriptionManagerRef = useRef<SubscriptionManagerHandle>(null);
   const [autoEditProfile, setAutoEditProfile] = useState(false);
   const [photoSaved, setPhotoSaved] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
 
   // New blocked date form
@@ -677,11 +679,9 @@ function DashboardContent() {
                   </div>
                   <div className="flex gap-2">
                     <label className="btn-secondary text-sm py-1.5 px-3 cursor-pointer flex-1 text-center">
-                      <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                      <input type="file" accept="image/*" className="hidden" onChange={e => {
                         const f = e.target.files?.[0]; if (!f) return;
-                        const { compressBanner } = await import("@/lib/imageUtils");
-                        const compressed = await compressBanner(f);
-                        update("banner", compressed);
+                        setCropFile(f);
                         e.target.value = "";
                       }} />
                       Changer
@@ -1565,6 +1565,17 @@ function DashboardContent() {
       )}
         </div> {/* fin zone contenu droite */}
       </div> {/* fin layout 2 colonnes */}
+
+      {cropFile && (
+        <BannerCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onCropped={dataUrl => {
+            update("banner", dataUrl);
+            setCropFile(null);
+          }}
+        />
+      )}
     </div>
   );
 }
