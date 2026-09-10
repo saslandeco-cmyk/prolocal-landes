@@ -5,7 +5,7 @@ import { getAllEntreprisesForExport, getEntreprisesBySirets, type EntrepriseRow 
 const COLUMNS = [
   "SIRET", "SIREN", "Dénomination", "Enseigne", "Code APE", "Libellé APE",
   "Adresse", "Code postal", "Commune",
-  "Département", "Téléphone", "Email", "Site web", "Statut",
+  "Département", "Latitude", "Longitude", "Téléphone", "Email", "Site web", "Statut",
   "Dernière synchronisation",
 ];
 
@@ -18,6 +18,7 @@ function buildCsv(entreprises: EntrepriseRow[]): string {
   const rows = entreprises.map(e => [
     e.siret, e.siren, e.denomination, e.enseigne, e.codeApe, e.libelleApe,
     e.adresse, e.codePostal, e.commune, e.departement,
+    e.lat ?? "", e.lng ?? "",
     e.telephone, e.email, e.siteWeb,
     e.etatAdministratif === "A" ? "Actif" : e.etatAdministratif,
     new Date(e.updatedAt).toLocaleDateString("fr-FR"),
