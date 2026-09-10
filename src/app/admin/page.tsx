@@ -1475,9 +1475,22 @@ export default function AdminPage() {
                 if (!Array.isArray(data)) throw new Error("Format invalide");
                 const livePros = getProfessionals();
                 let imported = 0;
+                let updatedCount = 0;
+                let unchangedCount = 0;
                 for (const pro of data) {
                   if (!pro.id || !pro.companyName) continue;
-                  const existing = livePros.find(p => p.id === pro.id) ?? null;
+                  // Dédoublonnage : correspond d'abord par ID, puis par SIREN,
+                  // puis par nom d'entreprise (insensible à la casse) — pour
+                  // ne jamais créer de doublon même si les ID du fichier ne
+                  // correspondent pas exactement à ceux déjà en base.
+                  let existing = livePros.find(p => p.id === pro.id) ?? null;
+                  if (!existing && pro.siren) {
+                    const siren = pro.siren.replace(/\s/g, "");
+                    existing = livePros.find(p => p.siren.replace(/\s/g, "") === siren) ?? null;
+                  }
+                  if (!existing) {
+                    existing = livePros.find(p => p.companyName.toLowerCase().trim() === pro.companyName.toLowerCase().trim()) ?? null;
+                  }
                   // Ne fusionne que les champs correspondant aux colonnes sélectionnées ;
                   // les autres champs conservent leur valeur existante (ou celle par défaut si nouvelle fiche).
                   const merged: Professional = { ...(existing ?? pro) };
@@ -1504,18 +1517,27 @@ export default function AdminPage() {
                   if (selectedColumns.has("Description courte"))    merged.shortDescription = pro.shortDescription;
                   if (selectedColumns.has("Description longue"))   merged.description = pro.description;
                   // Champs techniques toujours conservés/complétés (non pilotés par la sélection de colonnes)
-                  merged.id = pro.id;
+                  merged.id = existing?.id || pro.id;
                   merged.password   = existing?.password   ?? pro.password   ?? "changeme2024";
                   merged.logo       = existing?.logo       ?? pro.logo;
                   merged.banner     = existing?.banner     ?? pro.banner;
                   merged.photos     = existing?.photos     ?? pro.photos     ?? [];
                   merged.createdAt  = existing?.createdAt  ?? pro.createdAt  ?? new Date().toISOString();
-                  merged.updatedAt  = new Date().toISOString();
-                  saveProfessional(await ensureGeocoded(merged));
-                  imported++;
+
+                  const { updatedAt: _existingTs, ...existingNoTs } = existing || ({} as Professional);
+                  const { updatedAt: _mergedTs, ...mergedNoTs } = merged;
+                  const hasChanges = !existing || JSON.stringify(existingNoTs) !== JSON.stringify(mergedNoTs);
+
+                  if (hasChanges) {
+                    merged.updatedAt = new Date().toISOString();
+                    saveProfessional(await ensureGeocoded(merged));
+                    if (existing) updatedCount++; else imported++;
+                  } else {
+                    unchangedCount++;
+                  }
                 }
                 await getProfessionalsWithImages().then(setPros);
-                alert(`✅ ${imported} professionnel(s) importé(s) / mis à jour depuis le JSON (colonnes sélectionnées : ${selectedColumns.size}/${ALL_COLUMN_LABELS.length}).`);
+                alert(`✅ ${imported} créé(s), ${updatedCount} mis à jour, ${unchangedCount} inchangé(s) — aucun doublon créé (colonnes sélectionnées : ${selectedColumns.size}/${ALL_COLUMN_LABELS.length}).`);
               } catch {
                 alert("❌ Erreur : fichier JSON invalide.");
               }
@@ -1559,6 +1581,8 @@ export default function AdminPage() {
               // Lire directement depuis localStorage (pas depuis le state React périmé)
               const livePros = getProfessionals();
               let imported = 0;
+              let updatedCount = 0;
+              let unchangedCount = 0;
 
               for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
@@ -1570,12 +1594,26 @@ export default function AdminPage() {
                 const gatedVal = (name: string): string => selectedColumns.has(name) ? rawVal(name) : "";
 
                 const csvId = rawVal("ID"); // l'ID sert toujours à identifier la fiche, indépendamment de la sélection
-                const existing = csvId ? (livePros.find(p => p.id === csvId) ?? null) : null;
+                const csvSiren = rawVal("SIREN").replace(/\s/g, "");
+                const csvCompanyNameRaw = rawVal("Entreprise");
+
+                // Dédoublonnage : correspond d'abord par ID, puis par SIREN
+                // (identifiant fiable), puis par nom d'entreprise (insensible
+                // à la casse) — pour qu'un import répété sans colonne "ID"
+                // mette à jour les fiches déjà existantes au lieu d'en
+                // recréer des doublons à chaque fois.
+                let existing: Professional | null = csvId ? (livePros.find(p => p.id === csvId) ?? null) : null;
+                if (!existing && csvSiren) {
+                  existing = livePros.find(p => p.siren.replace(/\s/g, "") === csvSiren) ?? null;
+                }
+                if (!existing && csvCompanyNameRaw) {
+                  existing = livePros.find(p => p.companyName.toLowerCase().trim() === csvCompanyNameRaw.toLowerCase().trim()) ?? null;
+                }
 
                 const companyName = gatedVal("Entreprise") || existing?.companyName || "";
                 if (!companyName) continue;
 
-                const id = csvId || generateId();
+                const id = existing?.id || csvId || generateId();
 
                 // Normalise la catégorie (insensible à la casse)
                 const csvCat = gatedVal("Catégorie");
@@ -1621,15 +1659,27 @@ export default function AdminPage() {
                   createdAt:        existing?.createdAt  || now,
                   updatedAt:        now,
                 };
-                saveProfessional(await ensureGeocoded(updated));
-                imported++;
+                // N'enregistre que si quelque chose a réellement changé —
+                // évite de créer une mise à jour inutile (et un nouvel
+                // updatedAt) quand la fiche importée est identique à
+                // l'existante.
+                const { updatedAt: _existingUpdatedAt, ...existingWithoutTimestamp } = existing || ({} as Professional);
+                const { updatedAt: _newUpdatedAt, ...updatedWithoutTimestamp } = updated;
+                const hasChanges = !existing || JSON.stringify(existingWithoutTimestamp) !== JSON.stringify(updatedWithoutTimestamp);
+
+                if (hasChanges) {
+                  saveProfessional(await ensureGeocoded(updated));
+                  if (existing) updatedCount++; else imported++;
+                } else {
+                  unchangedCount++;
+                }
               }
 
               // Rechargement complet depuis localStorage
               const fresh = await getProfessionalsWithImages();
               setPros(fresh);
               setReviews(getReviews());
-              alert(`✅ ${imported} professionnel(s) importé(s) / mis à jour depuis le CSV (colonnes sélectionnées : ${selectedColumns.size}/${ALL_COLUMN_LABELS.length}).`);
+              alert(`✅ ${imported} créé(s), ${updatedCount} mis à jour, ${unchangedCount} inchangé(s) — aucun doublon créé (colonnes sélectionnées : ${selectedColumns.size}/${ALL_COLUMN_LABELS.length}).`);
               e.target.value = "";
             }} />
           </label>
