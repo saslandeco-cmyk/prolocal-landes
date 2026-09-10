@@ -40,6 +40,16 @@ export interface SireneEtablissement {
   commune: string | null;
   codeCommuneInsee: string | null;
   trancheEffectif: string | null;
+  /**
+   * Coordonnées GPS — ⚠️ l'API "Recherche d'Entreprises" a retiré ses
+   * champs latitude/longitude le 13 mai 2026 (annonce officielle
+   * data.gouv.fr). Ces champs restent lus au cas où l'API les
+   * réintroduirait ou pour un autre compte/contexte, mais sont presque
+   * toujours `null` en pratique désormais — voir sync.ts pour le
+   * géocodage de repli (adresse → coordonnées) qui compense ce retrait.
+   */
+  lat: number | null;
+  lng: number | null;
   raw: unknown;
 }
 
@@ -155,6 +165,11 @@ export async function searchEtablissements(opts: SearchOptions): Promise<SearchR
         commune: etab.libelle_commune || null,
         codeCommuneInsee: etab.code_commune || null,
         trancheEffectif: etab.tranche_effectif_salarie || entreprise.tranche_effectif_salarie || null,
+        // Lecture au cas où (voir note ci-dessus) — presque toujours null
+        // avec cette API depuis mai 2026, le géocodage de repli dans
+        // sync.ts prend le relais dans ce cas.
+        lat: typeof etab.latitude === "number" ? etab.latitude : (etab.latitude ? parseFloat(etab.latitude) : null),
+        lng: typeof etab.longitude === "number" ? etab.longitude : (etab.longitude ? parseFloat(etab.longitude) : null),
         raw: etab,
       });
     }

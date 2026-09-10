@@ -1,4 +1,5 @@
 import { fetchAllEtablissements } from "./client";
+import { geocodeAddress } from "@/lib/geocode";
 import {
   upsertEtablissement,
   logHistorique,
@@ -12,6 +13,7 @@ export interface SyncStats {
   totalInserted: number;
   totalUpdated: number;
   totalUnchanged: number;
+  totalGeocoded: number;
   codesApe: string[];
   durationMs: number;
 }
@@ -21,6 +23,16 @@ export interface SyncStats {
  * codes APE dans le département 40 : pagination automatique complète,
  * dédoublonnage par upsert SIRET, et journalisation des changements réels
  * dans l'historique.
+ *
+ * ⚠️ Géocodage de repli : l'API "Recherche d'Entreprises" a retiré ses
+ * champs latitude/longitude le 13 mai 2026 (annonce officielle
+ * data.gouv.fr) — sans coordonnées, aucun marker ne peut s'afficher sur
+ * une carte. Chaque établissement sans coordonnées est donc géocodé via
+ * Nominatim (OpenStreetMap, gratuit, déjà utilisé pour les professionnels
+ * inscrits), avec un délai d'1 seconde entre chaque appel pour respecter
+ * la politique d'usage de ce service. Les coordonnées déjà connues
+ * (établissement déjà géocodé lors d'un cycle précédent) ne sont jamais
+ * re-géocodées inutilement.
  *
  * Utilisée à la fois par le cron quotidien (/api/cron/sync-sirene) et par
  * un déclenchement manuel depuis l'admin (étape 4).
@@ -35,11 +47,11 @@ export async function runSync(codesApe?: string[]): Promise<SyncStats> {
     : (await getWatchedApeCodes()).map(c => c.codeApe);
 
   if (codes.length === 0) {
-    return { totalFetched: 0, totalInserted: 0, totalUpdated: 0, totalUnchanged: 0, codesApe: [], durationMs: Date.now() - start };
+    return { totalFetched: 0, totalInserted: 0, totalUpdated: 0, totalUnchanged: 0, totalGeocoded: 0, codesApe: [], durationMs: Date.now() - start };
   }
 
   const logId = await startSyncLog(codes);
-  let inserted = 0, updated = 0, unchanged = 0;
+  let inserted = 0, updated = 0, unchanged = 0, geocoded = 0;
 
   try {
     // Un appel paginé par code APE, pour rester dans des lots raisonnables
@@ -49,6 +61,20 @@ export async function runSync(codesApe?: string[]): Promise<SyncStats> {
       const etablissements = await fetchAllEtablissements([code], "40");
 
       for (const etab of etablissements) {
+        // Géocode uniquement si l'API n'a pas déjà fourni de coordonnées
+        // (quasiment toujours le cas désormais) et qu'une adresse existe.
+        if ((!etab.lat || !etab.lng) && etab.adresse && etab.commune && etab.codePostal) {
+          try {
+            const coords = await geocodeAddress(etab.adresse, etab.commune, etab.codePostal);
+            if (coords) { etab.lat = coords.lat; etab.lng = coords.lng; geocoded++; }
+          } catch {
+            // Échec silencieux : l'établissement est quand même enregistré,
+            // simplement sans marker jusqu'au prochain cycle de synchro.
+          }
+          // Respecte la limite d'1 requête/seconde de Nominatim
+          await new Promise(r => setTimeout(r, 1000));
+        }
+
         const result = await upsertEtablissement(etab);
         if (result.status === "inserted") inserted++;
         else if (result.status === "updated") { updated++; await logHistorique(etab.siret, result.changes); }
@@ -61,6 +87,7 @@ export async function runSync(codesApe?: string[]): Promise<SyncStats> {
       totalInserted: inserted,
       totalUpdated: updated,
       totalUnchanged: unchanged,
+      totalGeocoded: geocoded,
       codesApe: codes,
       durationMs: Date.now() - start,
     };

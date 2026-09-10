@@ -136,13 +136,13 @@ export async function upsertEtablissement(etab: SireneEtablissement): Promise<Up
       code_ape, libelle_ape, code_ape_naf2025, libelle_ape_naf2025,
       est_siege, etat_administratif, date_creation,
       adresse, code_postal, commune, code_commune_insee, departement,
-      tranche_effectif, raw_data, source, last_synced_at, updated_at
+      tranche_effectif, lat, lng, raw_data, source, last_synced_at, updated_at
     ) VALUES (
       ${etab.siret}, ${etab.siren}, ${etab.nic}, ${etab.denomination}, ${etab.nomCommercial}, ${etab.enseigne},
       ${etab.codeApe}, ${etab.libelleApe}, ${etab.codeApeNaf2025}, ${etab.libelleApeNaf2025},
       ${etab.estSiege}, ${etab.etatAdministratif}, ${etab.dateCreation},
       ${etab.adresse}, ${etab.codePostal}, ${etab.commune}, ${etab.codeCommuneInsee}, ${(etab.codePostal || "40").slice(0, 2)},
-      ${etab.trancheEffectif}, ${JSON.stringify(etab.raw)}::jsonb, 'recherche-entreprises', now(), now()
+      ${etab.trancheEffectif}, ${etab.lat}, ${etab.lng}, ${JSON.stringify(etab.raw)}::jsonb, 'recherche-entreprises', now(), now()
     )
     ON CONFLICT (siret) DO UPDATE SET
       denomination = EXCLUDED.denomination,
@@ -158,6 +158,12 @@ export async function upsertEtablissement(etab: SireneEtablissement): Promise<Up
       commune = EXCLUDED.commune,
       code_commune_insee = EXCLUDED.code_commune_insee,
       tranche_effectif = EXCLUDED.tranche_effectif,
+      -- Ne remplace les coordonnées déjà géocodées que si la nouvelle
+      -- valeur en apporte une (évite d'écraser un géocodage réussi par
+      -- un null si l'adresse n'a pas changé mais que le géocodage de ce
+      -- cycle échoue ponctuellement).
+      lat = COALESCE(EXCLUDED.lat, entreprises_sirene.lat),
+      lng = COALESCE(EXCLUDED.lng, entreprises_sirene.lng),
       raw_data = EXCLUDED.raw_data,
       last_synced_at = now(),
       updated_at = now()
