@@ -14,6 +14,7 @@ import RichTextEditor from "@/components/ui/RichTextEditor";
 import OpeningHoursEditor from "@/components/ui/OpeningHoursEditor";
 import type { OpeningHours } from "@/types";
 import StripePaymentForm from "@/components/professional/StripePaymentForm";
+import BannerCropper from "@/components/ui/BannerCropper";
 
 type PlanType = "standard" | "premium" | "gold";
 type Step = 1 | 2 | "pub" | "seo" | 3 | 4;
@@ -42,11 +43,18 @@ function ImageUploader({
   aspect?: "square" | "banner";
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const handle = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    onChange(await readFileAsBase64(f, aspect === "banner" ? "banner" : "logo"));
+    if (aspect === "banner") {
+      // Bannière : passe par le recadrage interactif plutôt qu'une
+      // compression automatique qui coupait une zone imprévisible.
+      setCropFile(f);
+    } else {
+      onChange(await readFileAsBase64(f, "logo"));
+    }
     e.target.value = "";
   };
 
@@ -79,6 +87,17 @@ function ImageUploader({
         )}
       </div>
       <input ref={ref} type="file" accept="image/*" className="hidden" onChange={handle} />
+
+      {cropFile && (
+        <BannerCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onCropped={dataUrl => {
+            onChange(dataUrl);
+            setCropFile(null);
+          }}
+        />
+      )}
     </div>
   );
 }
