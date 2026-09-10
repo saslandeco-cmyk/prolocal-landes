@@ -231,7 +231,7 @@ function SireneManager() {
       const res = await fetch("/api/admin/sirene/sync-now", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const data = await res.json();
       if (data.error) { setSyncResult(`❌ ${data.error}`); return; }
-      setSyncResult(`✅ ${data.totalInserted} créés, ${data.totalUpdated} mis à jour, ${data.totalUnchanged} inchangés (${data.codesApe?.length || 0} code(s) APE, ${Math.round(data.durationMs / 1000)}s).`);
+      setSyncResult(`✅ ${data.totalInserted} créés, ${data.totalUpdated} mis à jour, ${data.totalUnchanged} inchangés, ${data.totalGeocoded || 0} géocodé(s) (${data.codesApe?.length || 0} code(s) APE, ${Math.round(data.durationMs / 1000)}s).`);
       loadSyncLogs();
       runSearch(1);
     } catch {
