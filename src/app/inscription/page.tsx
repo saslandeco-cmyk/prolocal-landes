@@ -423,7 +423,6 @@ function InscriptionForm() {
     if (!form.firstName)                                                      e.firstName       = "Requis";
     if (!form.lastName)                                                       e.lastName        = "Requis";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))                     e.email           = "Email invalide";
-    if (!form.phone)                                                          e.phone           = "Requis";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.loginEmail))                e.loginEmail      = "Email invalide";
     if (form.password.length < 8)                                             e.password        = "8 caractères minimum";
     if (!form.address)                                                        e.address         = "Requis";
@@ -861,7 +860,7 @@ function InscriptionForm() {
                     {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
                   <div>
-                    <label className="label">Téléphone *</label>
+                    <label className="label">Téléphone <span className="text-gray-400 font-normal text-xs">(recommandé)</span></label>
                     <input value={form.phone} onChange={e => upd("phone",e.target.value)} className="input-field" placeholder="05 58 00 00 00" />
                     {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                   </div>
