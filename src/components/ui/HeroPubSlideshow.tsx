@@ -85,13 +85,13 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
   }, [pros.length]);
 
   if (!loaded) {
-    return <div className="w-full h-full min-h-[320px] rounded-2xl bg-white/5 animate-pulse" />;
+    return <div className="w-full h-[400px] rounded-2xl bg-white/5 animate-pulse" />;
   }
 
   if (pros.length === 0) {
     if (fallback) return <>{fallback}</>;
     return (
-      <div className="relative w-full h-full min-h-[320px] rounded-2xl overflow-hidden bg-white/10 border border-white/20 flex items-center justify-center">
+      <div className="relative w-full h-[400px] rounded-2xl overflow-hidden bg-white/10 border border-white/20 flex items-center justify-center">
         <div className="absolute inset-0 opacity-20"
           style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
         <div className="relative text-center text-white/40 space-y-3">
@@ -109,7 +109,7 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
   const rating = getProRating(pro.id);
 
   return (
-    <div className="relative w-full h-full min-h-[320px] rounded-2xl overflow-hidden shadow-2xl group">
+    <div className="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-2xl group">
       <Link href={buildProfileUrl(pro)} className="block w-full h-full">
         <img
           src={pro.banner || pro.logo || "/placeholder-banner.jpg"}
@@ -123,23 +123,33 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
           Sponsorisé
         </span>
 
-        {/* Infos du professionnel */}
+        {/* Infos du professionnel — structure identique sur chaque slide
+            (même hauteur réservée pour chaque bloc, avec repli si une
+            information manque), pour un aspect uniforme quel que soit le
+            professionnel affiché. */}
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
-          <p className="font-bold text-lg leading-tight">{pro.companyName}</p>
-          <p className="text-white/80 text-sm">{pro.subcategory || pro.category} — {pro.city}</p>
-          {rating.count > 0 && (
-            <div className="flex items-center gap-1 mt-1.5 text-sm">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span className="font-semibold">{rating.avg.toFixed(1)}</span>
-              <span className="text-white/60">({rating.count} avis)</span>
-            </div>
-          )}
-          {pro.description && (
-            <p
-              className="mt-2 text-sm text-white/70 line-clamp-2"
-              dangerouslySetInnerHTML={{ __html: pro.description.replace(/<[^>]*>/g, " ").trim() }}
-            />
-          )}
+          <p className="font-bold text-xl leading-tight truncate">{pro.companyName}</p>
+          <p className="text-white/80 text-sm truncate">{pro.subcategory || pro.category} — {pro.city}</p>
+
+          <div className="flex items-center gap-1 mt-1.5 text-sm h-[20px]">
+            {rating.count > 0 ? (
+              <>
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span className="font-semibold">{rating.avg.toFixed(1)}</span>
+                <span className="text-white/60">({rating.count} avis)</span>
+              </>
+            ) : (
+              <span className="text-white/50 italic">Nouveau sur Prolocal-Landes</span>
+            )}
+          </div>
+
+          <p className="mt-2 text-sm text-white/70 line-clamp-2 min-h-[2.5em]">
+            {pro.description
+              ? <span dangerouslySetInnerHTML={{ __html: pro.description.replace(/<[^>]*>/g, " ").trim() }} />
+              : <span className="text-white/40 italic">Aucune description renseignée pour le moment.</span>
+            }
+          </p>
+
           <span className="inline-flex items-center gap-1.5 mt-3 bg-white text-landes-forest text-xs font-semibold px-3.5 py-2 rounded-lg group-hover:bg-landes-sand transition-colors">
             Voir la fiche <ArrowRight className="w-3.5 h-3.5" />
           </span>
