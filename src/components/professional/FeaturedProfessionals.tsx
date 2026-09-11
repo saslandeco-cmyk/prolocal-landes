@@ -111,8 +111,8 @@ function ProCard({ pro }: { pro: FeaturedPro }) {
   const bannerSrc = pro.banner || null;
 
   return (
-    <Link href={`/annuaire/${pro.id}`} className="block h-full group">
-      <div className="card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden h-full flex flex-col">
+    <Link href={`/annuaire/${pro.id}`} className="block group">
+      <div className="card hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col h-[400px]">
 
         {/* Bannière + logo à cheval */}
         <div className="w-full h-32 relative flex-shrink-0">
@@ -133,12 +133,14 @@ function ProCard({ pro }: { pro: FeaturedPro }) {
           </div>
         </div>
 
-        {/* Contenu */}
-        <div className="px-5 pt-10 pb-5 flex flex-col flex-1">
-          <h3 className="font-bold text-landes-pine text-base truncate group-hover:text-landes-forest transition-colors">
+        {/* Contenu — hauteur fixe (h-[400px] ci-dessus) : toutes les cards du
+            diaporama ont donc exactement la même taille, quel que soit le
+            contenu disponible (avis, téléphone, longueur de description). */}
+        <div className="px-5 pt-10 pb-5 flex flex-col flex-1 min-h-0">
+          <h3 className="font-bold text-landes-pine text-lg truncate group-hover:text-landes-forest transition-colors">
             {pro.name}
           </h3>
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+          <div className="flex items-center gap-2 flex-wrap mt-0.5 min-h-[22px]">
             <p className="text-sm text-landes-sage font-medium">{pro.job}</p>
             {rating && rating.avg > 0 && <StarDisplay rating={rating.avg} count={rating.count} size="xs" />}
           </div>
@@ -266,7 +268,7 @@ function ProCarousel({ pros, tabKey }: { pros: FeaturedPro[]; tabKey: number }) 
       onMouseLeave={() => setPaused(false)}
     >
       {/* Viewport */}
-      <div ref={wrapRef} className="overflow-hidden" style={{ minHeight: 380 }}>
+      <div ref={wrapRef} className="overflow-hidden" style={{ minHeight: 400 }}>
         {cw > 0 ? (
           /* Mode carrousel infini (translateX en px) — actif dès que la largeur est mesurée */
           <div
