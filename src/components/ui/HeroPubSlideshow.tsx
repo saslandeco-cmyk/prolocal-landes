@@ -142,7 +142,7 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
         {/* Bloc d'informations — fond vert plein, position fixe en bas de
             la card. Les avis et la description ne s'affichent que s'ils
             existent réellement (pas de texte de repli). */}
-        <div className="bg-landes-forest px-5 py-4 text-white flex-shrink-0">
+        <div className="bg-black/60 px-5 py-4 text-white flex-shrink-0">
           <p className="font-bold text-xl leading-tight truncate">{pro.companyName}</p>
           <p className="text-white/80 text-sm truncate">{pro.subcategory || pro.category} — {pro.city}</p>
 
