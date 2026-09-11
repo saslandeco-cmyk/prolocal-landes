@@ -109,46 +109,59 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
   const rating = getProRating(pro.id);
 
   return (
-    <div className="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-2xl group">
-      <Link href={buildProfileUrl(pro)} className="block w-full h-full">
-        <img
-          src={pro.banner || pro.logo || "/placeholder-banner.jpg"}
-          alt={pro.companyName}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+    <div className="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-2xl group flex flex-col">
+      <Link href={buildProfileUrl(pro)} className="flex flex-col h-full">
+        {/* Zone image — l'image complète reste visible (object-contain),
+            jamais recadrée, sur un fond neutre qui comble l'espace
+            restant si le ratio de l'image ne correspond pas au cadre. */}
+        <div className="relative flex-1 min-h-0 bg-landes-pine flex items-center justify-center overflow-hidden">
+          <img
+            src={pro.banner || pro.logo || "/placeholder-banner.jpg"}
+            alt={pro.companyName}
+            className="w-full h-full object-contain transition-transform duration-700 group-hover:scale-105"
+          />
+          {/* Badge "Encart sponsorisé" */}
+          <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+            Sponsorisé
+          </span>
 
-        {/* Badge "Encart sponsorisé" */}
-        <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
-          Sponsorisé
-        </span>
+          {/* Puces de navigation — superposées à la zone image uniquement,
+              pour ne jamais chevaucher le bloc d'informations à fond vert. */}
+          {pros.length > 1 && (
+            <div className="absolute bottom-3 right-4 flex gap-1.5">
+              {pros.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={e => { e.preventDefault(); setIndex(i); }}
+                  className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-5" : "bg-white/40"}`}
+                  aria-label={`Voir l'encart ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-        {/* Infos du professionnel — structure identique sur chaque slide
-            (même hauteur réservée pour chaque bloc, avec repli si une
-            information manque), pour un aspect uniforme quel que soit le
-            professionnel affiché. */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+        {/* Bloc d'informations — fond vert plein, position fixe en bas de
+            la card. Les avis et la description ne s'affichent que s'ils
+            existent réellement (pas de texte de repli). */}
+        <div className="bg-landes-forest px-5 py-4 text-white flex-shrink-0">
           <p className="font-bold text-xl leading-tight truncate">{pro.companyName}</p>
           <p className="text-white/80 text-sm truncate">{pro.subcategory || pro.category} — {pro.city}</p>
 
-          <div className="flex items-center gap-1 mt-1.5 text-sm h-[20px]">
-            {rating.count > 0 ? (
-              <>
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span className="font-semibold">{rating.avg.toFixed(1)}</span>
-                <span className="text-white/60">({rating.count} avis)</span>
-              </>
-            ) : (
-              <span className="text-white/50 italic">Nouveau sur Prolocal-Landes</span>
-            )}
-          </div>
+          {rating.count > 0 && (
+            <div className="flex items-center gap-1 mt-1.5 text-sm">
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span className="font-semibold">{rating.avg.toFixed(1)}</span>
+              <span className="text-white/60">({rating.count} avis)</span>
+            </div>
+          )}
 
-          <p className="mt-2 text-sm text-white/70 line-clamp-2 min-h-[2.5em]">
-            {pro.description
-              ? <span dangerouslySetInnerHTML={{ __html: pro.description.replace(/<[^>]*>/g, " ").trim() }} />
-              : <span className="text-white/40 italic">Aucune description renseignée pour le moment.</span>
-            }
-          </p>
+          {pro.description && (
+            <p
+              className="mt-2 text-sm text-white/70 line-clamp-2"
+              dangerouslySetInnerHTML={{ __html: pro.description.replace(/<[^>]*>/g, " ").trim() }}
+            />
+          )}
 
           <span className="inline-flex items-center gap-1.5 mt-3 bg-white text-landes-forest text-xs font-semibold px-3.5 py-2 rounded-lg group-hover:bg-landes-sand transition-colors">
             Voir la fiche <ArrowRight className="w-3.5 h-3.5" />
@@ -174,20 +187,6 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
             <ChevronRight className="w-5 h-5" />
           </button>
         </>
-      )}
-
-      {/* Puces de navigation */}
-      {pros.length > 1 && (
-        <div className="absolute bottom-3 right-4 flex gap-1.5">
-          {pros.map((_, i) => (
-            <button
-              key={i}
-              onClick={e => { e.preventDefault(); setIndex(i); }}
-              className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-5" : "bg-white/40"}`}
-              aria-label={`Voir l'encart ${i + 1}`}
-            />
-          ))}
-        </div>
       )}
     </div>
   );
