@@ -110,39 +110,38 @@ export default function HeroPubSlideshow({ category, subcategory, fallback }: Pr
 
   return (
     <div className="relative w-full h-[400px] rounded-2xl overflow-hidden shadow-2xl group flex flex-col">
-      <Link href={buildProfileUrl(pro)} className="flex flex-col h-full">
-        {/* Zone image — width:100%, height:100%, object-fit:cover */}
-        <div className="relative flex-1 min-h-0 bg-landes-pine flex items-center justify-center overflow-hidden">
-          <img
-            src={pro.banner || pro.logo || "/placeholder-banner.jpg"}
-            alt={pro.companyName}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-          {/* Badge "Encart sponsorisé" */}
-          <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
-            Sponsorisé
-          </span>
+      <Link href={buildProfileUrl(pro)} className="block h-full">
+        {/* Image sur toute la hauteur de la card */}
+        <img
+          src={pro.banner || pro.logo || "/placeholder-banner.jpg"}
+          alt={pro.companyName}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
 
-          {/* Puces de navigation — superposées à la zone image uniquement,
-              pour ne jamais chevaucher le bloc d'informations à fond vert. */}
-          {pros.length > 1 && (
-            <div className="absolute bottom-3 right-4 flex gap-1.5">
-              {pros.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={e => { e.preventDefault(); setIndex(i); }}
-                  className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-5" : "bg-white/40"}`}
-                  aria-label={`Voir l'encart ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Badge "Encart sponsorisé" */}
+        <span className="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
+          Sponsorisé
+        </span>
 
-        {/* Bloc d'informations — fond vert plein, position fixe en bas de
-            la card. Les avis et la description ne s'affichent que s'ils
-            existent réellement (pas de texte de repli). */}
-        <div className="bg-black/60 px-5 py-4 text-white flex-shrink-0">
+        {/* Puces de navigation — superposées à la zone image */}
+        {pros.length > 1 && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+            {pros.map((_, i) => (
+              <button
+                key={i}
+                onClick={e => { e.preventDefault(); setIndex(i); }}
+                className={`w-2 h-2 rounded-full transition-all ${i === index ? "bg-white w-5" : "bg-white/40"}`}
+                aria-label={`Voir l'encart ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Bloc d'informations — en surimpression sur l'image, au même
+            emplacement qu'auparavant (bas de la card). Les avis et la
+            description ne s'affichent que s'ils existent réellement (pas
+            de texte de repli). */}
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-5 py-4 text-white flex-shrink-0">
           <p className="font-bold text-xl leading-tight truncate">{pro.companyName}</p>
           <p className="text-white/80 text-sm truncate">{pro.subcategory || pro.category} — {pro.city}</p>
 
