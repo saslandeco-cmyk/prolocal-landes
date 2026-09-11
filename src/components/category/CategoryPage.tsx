@@ -242,7 +242,7 @@ export default function CategoryPage({ meta }: Props) {
                 category={meta.category}
                 fallback={
                   DEFAULT_BANNERS[meta.category] ? (
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl">
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl h-[400px]">
                       <img src={DEFAULT_BANNERS[meta.category]} alt={meta.category} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                       <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm rounded-xl px-4 py-2.5 text-white text-center">
@@ -251,7 +251,7 @@ export default function CategoryPage({ meta }: Props) {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-6">
+                    <div className="flex flex-col items-center justify-center gap-6 h-[400px]">
                       <div className="bg-white/10 backdrop-blur-sm rounded-3xl px-14 py-10 border border-white/20 flex flex-col items-center gap-4">
                         <div className="text-8xl select-none">{meta.emoji}</div>
                         <div className="text-center border-t border-white/20 pt-5 w-full">

@@ -194,7 +194,7 @@ export default function SubcategoryPage({ categoryLabel, subcategoryLabel }: Pro
                 subcategory={subcategoryLabel}
                 fallback={
                   DEFAULT_BANNERS[categoryLabel] ? (
-                    <div className="relative rounded-2xl overflow-hidden shadow-2xl min-h-[320px]">
+                    <div className="relative rounded-2xl overflow-hidden shadow-2xl min-h-[400px]">
                       <img src={DEFAULT_BANNERS[categoryLabel]} alt={categoryLabel} className="w-full h-full object-cover absolute inset-0" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                       {loaded && pros.length > 0 && (
@@ -205,7 +205,7 @@ export default function SubcategoryPage({ categoryLabel, subcategoryLabel }: Pro
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-6 min-h-[320px]">
+                    <div className="flex flex-col items-center justify-center gap-6 min-h-[400px]">
                       <div className="bg-white/10 backdrop-blur-sm rounded-3xl px-14 py-10 border border-white/20 flex flex-col items-center gap-4">
                         <div className="text-8xl select-none">{catMeta?.emoji || "💼"}</div>
                         <div className="text-center border-t border-white/20 pt-5 w-full">
